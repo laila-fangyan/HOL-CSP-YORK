@@ -1,0 +1,618 @@
+
+theory Bounded_Buffer_20240912_benoit_partially_automated
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
+          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+          "HOL-CSP_OpSem.Determinism" "HOL-CSP_Proc-Omata.NormalizationProperties"
+          "Guard"
+begin
+
+default_sort type
+
+
+no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
+no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
+
+no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
+
+
+subsection\<open>The bounded buffer processes definition in HOL-CSP using fixrec\<close>
+
+locale BoundedBuffer =
+  fixes maxbuff :: nat
+  \<comment> \<open>The buffer is bounded in its length: it may hold no more than maxbuff elements\<close>
+  assumes maxbuff_g0 [simp] : \<open>maxbuff > 0\<close>  
+
+begin
+
+
+\<comment> \<open>The process Buffer has two channels: input and output.\<close>
+datatype ringbuf_event =  input int | "output" int | rd "nat \<times> int" | wrt "nat \<times> int" 
+\<comment> \<open>The channels rd and wrt are used for communication with the ring cells.\<close>
+\<comment> \<open>The values communicated through rd and wrt are pairs, where the first element iden-
+tifes a cell, and the second element is the number actually communicated.\<close>
+
+\<comment> \<open>A simple bounded reactive FIFO buffer 'BBuf' that is used to store natural numbers.\<close>
+\<comment> \<open>There are two state variables:  the buffer size sz, the contents of the buffer buff. 
+These two are presented as parameters.\<close>
+fixrec BBuf :: \<open>nat \<rightarrow> int list \<rightarrow> ringbuf_event process\<close> where
+  [simp del]: \<open>BBuf\<cdot>sz\<cdot>buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf\<cdot>(sz+1)\<cdot>(buff @ [x]))  \<box>
+                  (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf\<cdot>(sz-1)\<cdot>(tl buff)) \<close>
+\<comment> \<open>The input action is enabled if there is space in the buffer for the new input: sz < maxbuff.
+ The new element is appended to the buffer's contents and the size is updated\<close>
+\<comment> \<open>The output action is enabled if there is something in the buffer: sz>0. The first element (head) is
+output; the others are retained in order; the size of the buffer is updated.\<close>
+
+
+datatype 'a buffer_any_event =  input_any 'a | output_any 'a
+
+definition BBuf_any :: \<open>nat \<Rightarrow> 'a list \<Rightarrow> 'a buffer_any_event process\<close>
+  where \<open>BBuf_any \<equiv> \<mu> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                     (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff))) \<close>
+
+lemma BBuf_any_cont : 
+  \<open>cont (\<lambda>x sz buff. (sz < maxbuff) \<^bold>& (input_any\<^bold>?xa \<rightarrow> x (sz + 1) (buff @ [xa])) \<box>
+                     (0 < sz) \<^bold>& (output_any\<^bold>!hd buff \<rightarrow> x (sz - 1) (tl buff)))\<close>
+  (is \<open>cont (\<lambda>x sz buff. ?f x sz buff \<box> ?g x sz buff)\<close>)
+proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+  show \<open>\<And>sz buff. cont (\<lambda>x. ?f x sz buff)\<close>
+      (* TODO: understand why the continuity proof is so difficult *)
+    apply (rule Guard_cont)
+    apply (rule read_cont)
+    apply (rule cont2cont_lambda)
+    by (rule cont2cont_fun, simp add: cont_fun)
+next
+  show \<open>\<And>sz buff. cont (\<lambda>x. ?g x sz buff)\<close>
+    apply (rule Guard_cont)
+    apply (rule write_cont)
+    by (metis cont2cont_fun cont_fun)
+qed
+
+lemma BBuf_any_unfold :
+  \<open>BBuf_any sz buff = (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> BBuf_any (sz+1) (buff @ [x]))  \<box>
+                      (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> BBuf_any (sz-1) (tl buff))\<close>
+  (is \<open>BBuf_any sz buff = ?f BBuf_any sz buff \<box> ?g BBuf_any sz buff\<close>)
+  by (subst cont_process_rec[OF BBuf_any_def[THEN meta_eq_to_obj_eq] BBuf_any_cont]) simp
+
+
+
+
+
+subsection \<open>2. Translation into normal form - Proc-Omata\<close>
+
+
+definition BBuf_any_A :: \<open>(nat \<times> 'a list, 'a buffer_any_event) A\<^sub>d\<close>
+  where \<open>BBuf_any_A \<equiv>
+         \<lparr>\<tau> = \<lambda>s e. case s of (sz, L) \<Rightarrow> (case e of input_any x \<Rightarrow> if sz < maxbuff then \<lfloor>(Suc sz, L @ [x])\<rfloor> else \<diamond>
+                                                | output_any x \<Rightarrow> if 0 < sz \<and> hd L = x then \<lfloor>(sz - 1, tl L)\<rfloor> else \<diamond>),
+          \<S>\<^sub>F = {}, \<S>\<^sub>I = {}\<rparr>\<close>
+
+
+lemma BBuf_any_\<epsilon> :
+  \<open>\<epsilon> BBuf_any_A s = (case s of (sz, L) \<Rightarrow>
+                       if sz < maxbuff
+                     then   if 0 < sz
+                          then {output_any (hd L)} \<union> range input_any
+                          else range input_any
+                     else {output_any (hd L)})\<close> (* necessarily then 0 < sz *)
+  by (auto simp add: BBuf_any_A_def \<epsilon>_simps split: buffer_any_event.splits if_splits)
+     (use bot_nat_0.not_eq_extremum maxbuff_g0 in blast)
+
+
+lemma BBuf_any_\<tau> :
+  \<open>\<tau> BBuf_any_A s e = (case s of (sz, L) \<Rightarrow> (case e of input_any x \<Rightarrow> if sz < maxbuff then \<lfloor>(Suc sz, L @ [x])\<rfloor> else \<diamond>
+                                                   | output_any x \<Rightarrow> if 0 < sz \<and> hd L = x then \<lfloor>(sz - 1, tl L)\<rfloor> else \<diamond>))\<close>
+  by (simp add: BBuf_any_A_def)
+
+definition BBuf_any_P_d :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_any_event process\<close>
+  where \<open>BBuf_any_P_d s \<equiv> P\<lbrakk>BBuf_any_A\<rbrakk>\<^sub>d s\<close>
+
+
+
+
+lemma BBuf_any_is_BBuf_any_P_d: \<open>BBuf_any sz L = BBuf_any_P_d (sz, L)\<close>
+proof (rule sym, unfold BBuf_any_P_d_def,
+       rule deterministic_iff_maximal_for_leFD[THEN iffD1, OF deterministic_P_d, rule_format])
+  show \<open>P\<lbrakk>BBuf_any_A\<rbrakk>\<^sub>d (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close>
+  proof (induct arbitrary: sz L rule: fix_ind[where F = \<open>\<Lambda> X. P_d_step (\<epsilon> BBuf_any_A) (\<tau> BBuf_any_A) X\<close>])
+    show \<open>adm (\<lambda>a. \<forall>sz L. a (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L)\<close>
+      by (simp add: cont_fun monofunI)
+  next
+    show \<open>\<bottom> (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close> for sz L by simp
+  next
+    fix X :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_any_event process\<close> and sz L
+    assume hyp : \<open>X (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close> for sz L
+    show \<open>((\<Lambda> X. P_d_step (\<epsilon> BBuf_any_A) (\<tau> BBuf_any_A) X)\<cdot>X) (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close>
+      apply (subst BBuf_any_unfold, simp add: BBuf_any_\<epsilon> Det_STOP Mprefix_Un_distrib)
+      apply (intro conjI impI)
+        apply (subst Mprefix_Un_distrib[of \<open>{_}\<close>, simplified])
+        apply (subst Det_commute)
+        apply (rule mono_Det_FD)
+         apply (unfold read_def)
+         apply (intro mono_Mprefix_FD ballI)
+         apply (auto simp add: BBuf_any_\<tau> image_iff)[1]
+         apply (subst inv_f_f, meson buffer_any_event.simps(1) inj_onI)
+         apply (solves \<open>simp add: hyp\<close>)
+
+        apply (unfold write_def)
+        apply (intro mono_Mprefix_FD ballI)
+        apply (simp add: BBuf_any_\<tau> image_iff)
+        apply (solves \<open>simp add: hyp\<close>)
+
+       apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+       apply (intro mono_Mprefix_FD ballI)
+       apply (simp add: BBuf_any_\<tau> image_iff)
+       apply (solves \<open>simp add: hyp\<close>)
+
+      apply (intro mono_Mprefix_FD ballI)
+      apply (auto simp add: BBuf_any_\<tau>)[1]
+      apply (subst inv_f_f, meson buffer_any_event.simps(1) inj_onI)
+      by (solves \<open>simp add: hyp\<close>)
+  qed
+qed
+
+
+lemma BBuf_any_is_BBuf_any_P_d_ : \<open>BBuf_any sz L = BBuf_any_P_d (sz, L)\<close>
+  \<comment> \<open>More automatized proof\<close>
+proof (rule sym, unfold BBuf_any_P_d_def,
+       rule deterministic_iff_maximal_for_leFD[THEN iffD1, OF deterministic_P_d, rule_format])
+  show \<open>P\<lbrakk>BBuf_any_A\<rbrakk>\<^sub>d (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close>
+  proof (induct arbitrary: sz L rule: fix_ind[where F = \<open>\<Lambda> X. P_d_step (\<epsilon> BBuf_any_A) (\<tau> BBuf_any_A) X\<close>])
+    show \<open>adm (\<lambda>a. \<forall>sz L. a (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L)\<close>
+      by (simp add: cont_fun monofunI)
+  next
+    show \<open>\<bottom> (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close> for sz L by simp
+  next
+    have * : \<open>inv input_any (input_any x) = x\<close> for x
+      by (meson buffer_any_event.simps(1) f_inv_into_f range_eqI)
+    fix X :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_any_event process\<close> and sz L
+    assume hyp : \<open>X (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close> for sz L
+    show \<open>((\<Lambda> X. P_d_step (\<epsilon> BBuf_any_A) (\<tau> BBuf_any_A) X)\<cdot>X) (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any sz L\<close>
+      apply (subst BBuf_any_unfold, simp add: BBuf_any_\<epsilon> Det_STOP Mprefix_Un_distrib)
+      apply (intro conjI impI)
+        apply (unfold read_def write_def Mprefix_Det_Mprefix)
+        apply (subst Un_commute)
+        apply (simp) (* Why do we nee a simp here ??? *)
+        apply (intro mono_Mprefix_FD ballI)
+        apply (auto simp add: image_iff BBuf_any_\<tau> "*" intro : hyp)[1]
+
+       apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+       apply (intro mono_Mprefix_FD ballI)
+       apply (simp add: BBuf_any_\<tau> hyp)
+      apply (intro mono_Mprefix_FD ballI)
+      by (auto simp add: BBuf_any_\<tau> "*" hyp)
+  qed
+qed
+
+
+
+     
+theorem deadlock_free_BBuf_any : \<open>deadlock_free (BBuf_any n L)\<close>
+  apply (simp add: BBuf_any_is_BBuf_any_P_d BBuf_any_P_d_def P_d_deadlock_free_iff)
+  by (auto simp add: BBuf_any_\<epsilon> split: if_split_asm)
+
+
+
+
+(* the four following lemmas are not useful for now *)
+lemma Nil_\<R>\<^sub>d_BBuf_any : \<open>(0, []) \<in> \<R>\<^sub>d BBuf_any_A (length L, L)\<close>
+proof (induct L)
+  show \<open>(0, []) \<in> \<R>\<^sub>d BBuf_any_A (length [], [])\<close> by (simp add: \<R>\<^sub>d.init)
+next
+  fix L :: \<open>'a list\<close> and x assume hyp : \<open>(0, []) \<in> \<R>\<^sub>d BBuf_any_A (length L, L)\<close>
+  show \<open>(0, []) \<in> \<R>\<^sub>d BBuf_any_A (length (x # L), x # L)\<close>
+    apply (rule \<R>\<^sub>d_trans[OF hyp])
+    apply (rule \<R>\<^sub>d.step[OF \<R>\<^sub>d.init, of _ _ _ \<open>output_any x\<close>])
+    by (simp add: BBuf_any_\<tau>)
+qed
+
+lemma BBuf_any_\<R>\<^sub>d_Nil : \<open>\<R>\<^sub>d BBuf_any_A (0, []) = {(length L, L)| L. length L \<le> maxbuff}\<close>
+proof safe
+  show \<open>(sz, L) \<in> \<R>\<^sub>d BBuf_any_A (0, []) \<Longrightarrow> \<exists>L'. (sz, L) = (length L', L') \<and> length L' \<le> maxbuff\<close> for sz L
+  proof (induct rule: \<R>\<^sub>d.induct)
+    show \<open>\<exists>L'. (0, []) = (length L', L') \<and> length L' \<le> maxbuff\<close> by simp
+  next
+    fix t u e
+    assume * : \<open>t \<in> \<R>\<^sub>d BBuf_any_A (0, [])\<close> \<open>\<exists>L'. t = (length L', L') \<and> length L' \<le> maxbuff\<close> \<open>\<lfloor>u\<rfloor> = \<tau> BBuf_any_A t e\<close>
+    from "*"(2) obtain L' where \<open>t = (length L', L')\<close> \<open>length L' \<le> maxbuff\<close> by blast
+    show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+    proof (cases e)
+      fix x assume \<open>e = input_any x\<close>
+      with "*"(3) \<open>t = (length L', L')\<close>
+      show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+        apply (intro exI[where x = \<open>L' @ [x]\<close>])
+        by (simp add: BBuf_any_\<tau> split: prod.split_asm if_split_asm)
+    next
+      fix x assume \<open>e = output_any x\<close>
+      with "*"(3) \<open>t = (length L', L')\<close> \<open>length L' \<le> maxbuff\<close>
+      show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+        apply (intro exI[where x = \<open>tl L'\<close>])
+        by (simp add: BBuf_any_\<tau> split: prod.split_asm if_split_asm)
+    qed
+  qed
+next
+  show \<open>length L \<le> maxbuff \<Longrightarrow> (length L, L) \<in> \<R>\<^sub>d BBuf_any_A (0, [])\<close> for L
+  proof (induct L rule: rev_induct)
+    show \<open>length [] \<le> maxbuff \<Longrightarrow> (length [], []) \<in> \<R>\<^sub>d BBuf_any_A (0, [])\<close>
+      by (simp add: \<R>\<^sub>d.init)
+  next
+    fix e L
+    assume hyp : \<open>length L \<le> maxbuff \<Longrightarrow> (length L, L) \<in> \<R>\<^sub>d BBuf_any_A (0, [])\<close>
+      and prem : \<open>length (L @ [e]) \<le> maxbuff\<close>
+    show \<open>(length (L @ [e]), L @ [e]) \<in> \<R>\<^sub>d BBuf_any_A (0, [])\<close>
+      apply (rule \<R>\<^sub>d.step[OF hyp, of _ \<open>input_any e\<close>])
+      using prem apply auto[1]
+      apply (simp add: BBuf_any_\<tau>)
+      using prem by auto[1]
+  qed
+qed
+    
+
+lemma events_BBuf_any: \<open>events_of (BBuf_any 0 []) = range input_any \<union> range output_any\<close>
+  apply (simp add: BBuf_any_is_BBuf_any_P_d BBuf_any_P_d_def events_P_d BBuf_any_\<R>\<^sub>d_Nil)
+  apply (auto simp add: BBuf_any_\<epsilon> image_iff split: if_split_asm)
+  by (metis Ex_list_of_length length_Cons list.sel(1) maxbuff_g0 neq_Nil_conv not_less_iff_gr_or_eq)
+ 
+
+lemma initials_BBuf_any: \<open>(BBuf_any (length L) L)\<^sup>0 =
+                          (if length L < maxbuff then ev ` range input_any else {}) \<union>
+                          (if 0 < length L then {ev (output_any (hd L))} else {})\<close>
+  by (subst cont_process_rec[OF BBuf_any_def[THEN meta_eq_to_obj_eq] BBuf_any_cont])
+     (auto simp add: initials_STOP write_def read_def comp_def initials_Det initials_Mprefix image_iff)
+
+
+
+
+
+
+definition BBuf_A :: \<open>(nat \<times> int list, ringbuf_event) A\<^sub>d\<close> (\<open>A\<^sub>b\<^sub>b\<close>) where
+  \<open>A\<^sub>b\<^sub>b \<equiv> \<lparr>
+    \<tau> = \<lambda> (sz, buff) e. 
+      (case e of 
+          input x \<Rightarrow> if sz < maxbuff then \<lfloor>(sz + 1, buff @ [x])\<rfloor> else \<diamond>
+        | output x \<Rightarrow> if sz > 0 then \<lfloor>(sz - 1, tl buff)\<rfloor> else \<diamond>
+        | _ \<Rightarrow> \<diamond>),
+    \<S>\<^sub>F = {},  
+    \<S>\<^sub>I = {}   
+  \<rparr>
+\<close>
+
+(* not working this way?
+definition BBuf_A :: \<open>nat \<Rightarrow> (nat \<times> int list, ringbuf_event) A\<^sub>d\<close> (\<open>A\<^sub>b\<^sub>b\<close>) where
+  \<open>A\<^sub>b\<^sub>b \<equiv> recursive_constructor_A\<^sub>d
+    [( ((sz, buff), input x),    if (sz < maxbuff) then \<lfloor>((sz + 1), buff @ [x])\<rfloor> else \<lfloor>(sz, buff)\<rfloor> ),
+     ( ((sz, buff), output (hd buff)),    if sz > 0 then \<lfloor>((sz - 1), (tl buff))\<rfloor> else \<lfloor> (sz, buff)\<rfloor>)] 
+     {} 
+     {}\<close>
+
+*)
+
+
+definition bbuf_P_d :: \<open>nat \<Rightarrow> int list \<Rightarrow> ringbuf_event process\<close> where
+  \<open>bbuf_P_d sz buff \<equiv> P\<lbrakk>A\<^sub>b\<^sub>b\<rbrakk>\<^sub>d (sz, buff)\<close>
+
+
+lemma BBuf_is_bbuf_P_d: \<open>BBuf\<cdot>sz\<cdot>buff = bbuf_P_d sz buff\<close>
+  unfolding bbuf_P_d_def BBuf_def
+  sorry
+
+
+definition \<open>inv_bbuf sz buff \<equiv>
+             sz \<le> maxbuff \<and> length buff = sz \<and>  maxbuff > 0\<close> (* ? ?  *)
+
+lemma show_inv_bbuf: 
+  \<open>sz \<le> maxbuff \<and> length buff = sz \<and>  maxbuff > 0 \<Longrightarrow> 
+    inv_bbuf sz buff\<close>
+  by (simp add: inv_bbuf_def)
+
+
+lemma inv_BBUF: \<open>(sz,buff) \<in> \<R>\<^sub>d A\<^sub>b\<^sub>b (0, []) \<Longrightarrow> inv_bbuf sz buff\<close>
+  oops
+
+lemma inv_implies_DF: \<open>\<epsilon> A\<^sub>b\<^sub>b (sz, buff) \<noteq> {}\<close> if hyp_inv: \<open>inv_bbuf sz buff\<close>
+  oops
+end
+
+
+
+
+
+
+
+
+
+
+
+
+subsection\<open>The Ring Buffer processes definition in HOL-CSP using fixrec\<close>
+
+
+\<comment> \<open>An implementation uses a ring of cells, each implemented as a  process, and a central controller that keeps track of
+the indexes of the first and last elements (bot, top), offering the input and output services.\<close>
+context BoundedBuffer
+begin
+
+definition maxring :: nat where \<open>maxring \<equiv> maxbuff - 1\<close>
+\<comment> \<open>The maximum size of the ring is one less than the size of the buffer, as the head is cached.\<close>
+
+declare maxring_def [simp]
+
+
+\<comment> \<open>The indexes of the ring go from 0 to maxring-1.\<close>
+definition ringindex ::  \<open>nat set\<close> where \<open>ringindex = {0..<maxring}\<close> 
+
+
+\<comment> \<open>The impl solution is to cache the head (first element, bottom of stack) of the ring in the controller, 
+and distribute only the tail of the buffer around the ring.\<close>
+\<comment> \<open>The state of the controller contains the size of the buffer (sz), the cache,
+and two ring indexes, keeping track of the index of the next available position (top)
+and the index of the first value stored (bot).\<close>
+
+
+fixrec  Cell     :: \<open>nat \<rightarrow> int \<rightarrow> ringbuf_event process\<close> 
+    and RingCell :: \<open>nat \<rightarrow> ringbuf_event process\<close> 
+    and Ctrl     :: \<open>nat \<rightarrow> int \<rightarrow> nat  \<rightarrow> nat  \<rightarrow> ringbuf_event process\<close> 
+
+where
+
+[simp del] : \<open>Cell\<cdot>n\<cdot>v =  (rd\<^bold>!(n,v) \<rightarrow> Cell\<cdot>n\<cdot>v)  \<box>
+               (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>RingCell\<cdot>n = (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>Ctrl\<cdot>sz\<cdot>cache\<cdot>to\<cdot>bo = 
+                     ( ((sz< maxbuff)  \<^bold>&
+                             (input\<^bold>?x \<rightarrow>(
+                                       ( ( sz=0) \<^bold>& Ctrl\<cdot>1\<cdot>x\<cdot>to\<cdot>bo)  
+                                          \<box>
+                                       ( (sz>0 ) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow>  Ctrl\<cdot>(sz+1)\<cdot>cache\<cdot>((to+1)mod maxring) \<cdot> bo))) ))
+                                  
+                        \<box>
+                        ((sz > 0)     \<^bold>& 
+                              (output\<^bold>!cache \<rightarrow>(
+                                       ( (sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> Ctrl\<cdot>(sz-1)\<cdot>x\<cdot>to\<cdot>((bo+1)mod maxring)))
+                                          \<box>
+                                       ( (sz=1) \<^bold>& Ctrl\<cdot>0\<cdot>cache\<cdot>to\<cdot>bo ) ) ) )
+                      ) \<close>
+
+
+
+\<comment> \<open>Controller: The input action depends on whether the buffer is empty: sz=0. 
+If it is empty, then this input must be kept in the cache, not in the ring cell; 
+if it is non-empty and there is space in the buffer, then the controller transmits
+the input x to the cell at the top of the ring, the top index advances 
+(the index of the next available position).the cache is ocuppied and unchanged. 
+if it is full, then no input action is possible. 
+When the input is cached, the top and bot indexes do not change.
+\<close>
+\<comment> \<open>Controller: The output always comes from the cache, which must be replaced if the ring is non-empty. 
+The output action ' output!cache' is enabled when the buffer is non-empty: sz>0. 
+In the case that the ring is empty, we have size = 1, the value is stored in cache; 
+after output, buffer size sz is reset to 0; nothing else changes.
+If the ring is non-empty: sz>1,
+the controller obtains the input x from the cell at the bot of the ring.\<close>
+
+
+
+definition
+\<open>Ring = \<^bold>|\<^bold>|\<^bold>| i \<in># mset [0..<maxring]. RingCell\<cdot>i \<close>
+
+
+definition Syn  :: \<open>ringbuf_event set\<close>
+  where     \<open>Syn  \<equiv> {rd x | x. True} \<union> {wrt x | x . True}\<close>
+
+definition RingBuffer :: \<open>ringbuf_event process\<close>
+  where \<open>RingBuffer = (Ctrl\<cdot>0\<cdot>0\<cdot>0\<cdot>0 \<lbrakk>Syn\<rbrakk> Ring) \ Syn\<close>
+
+
+text \<open>First, we prove that the bounded buffer is deadlock free.\<close>
+
+(* TODO: move this in CSP *)
+lemma Mndetprefix_trans_subset_FD : 
+  \<open>A \<noteq> {} \<Longrightarrow> A \<subseteq> B \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> Q a \<sqsubseteq>\<^sub>F\<^sub>D P a) \<Longrightarrow>
+   Mndetprefix B Q \<sqsubseteq>\<^sub>F\<^sub>D Mndetprefix A P\<close>
+  by (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
+
+lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
+  by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
+
+find_theorems "?P \<sqsubseteq>\<^sub>F\<^sub>D ?Q"
+
+
+
+term "range input"
+term "inv input"
+term "input"
+
+lemma input_refine:
+  assumes "\<And> v. X \<sqsubseteq>\<^sub>F\<^sub>D P v"
+  shows "\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> P v"
+  apply (simp add: read_def)
+   apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
+   apply simp_all
+  apply (rule assms)
+  done
+
+lemma output_refine:
+  assumes "\<And> v. X \<sqsubseteq>\<^sub>F\<^sub>D P v"
+  shows "\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>!v \<rightarrow> P v"
+  apply (simp add: write_def)
+  apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
+    apply simp_all
+  apply (rule assms)
+  done
+
+
+lemma deadlock_free_BBuf : \<open>deadlock_free (BBuf\<cdot>(length L)\<cdot>L)\<close>
+proof (unfold deadlock_free_def DF_def)
+  show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
+  proof (induct arbitrary: L rule: fix_ind)
+    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L)\<close> by (simp add: monofunI)
+  next
+    show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L by simp
+  next
+    fix X L assume hyp : \<open>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L
+    show \<open>(\<Lambda> X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<cdot>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
+    proof (subst beta_cfun)
+      show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
+    next
+      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
+        apply (subst BBuf.unfold)
+        apply simp
+      proof -
+        consider \<open>L = []\<close> \<open>length L < maxbuff\<close> | \<open>L \<noteq> []\<close> \<open>length L < maxbuff\<close>
+        | \<open>L \<noteq> []\<close> \<open>\<not> length L < maxbuff\<close> by auto \<comment> \<open>we use @{thm maxbuff_g0} here\<close>
+        thus \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D
+             (length L < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf\<cdot>(Suc (length L))\<cdot>(L @ [x])) \<box>
+             (L \<noteq> []) \<^bold>& (output\<^bold>!hd L \<rightarrow> BBuf\<cdot>(length L - Suc 0)\<cdot>(tl L))\<close>
+          (is \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>)
+        proof cases
+          show \<open>L = [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_STOP)
+
+            apply (rule input_refine)
+            (* apply (rule input_refine) replace the following
+            apply (simp add: read_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
+            apply simp_all
+            *)
+            by (rule hyp[of \<open>[_]\<close>, simplified])
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply simp
+            apply (subst Ndet_id[symmetric])
+            apply (rule Ndet_trans_Det_FD)
+
+             apply (rule input_refine)
+            (*
+             apply (unfold read_def)
+             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+             *)
+             apply (metis hyp length_append_singleton)
+
+            apply (rule output_refine)
+           (* 
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+           *) by (metis One_nat_def hyp length_tl)
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> \<not> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+            apply (rule output_refine)
+           (* 
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+           *) 
+            by (metis One_nat_def hyp length_tl)
+        qed
+      qed
+    qed
+  qed
+qed
+
+corollary \<open>deadlock_free (BBuf\<cdot>0\<cdot>[])\<close>
+  by (metis deadlock_free_BBuf list.size(3))
+
+
+text \<open>Actually, the proof also works for the generalized version\<close>
+
+lemma deadlock_free_BBuf_any : \<open>deadlock_free (BBuf_any (length L) L)\<close>
+proof (unfold deadlock_free_def DF_def)
+  show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>D  BBuf_any (length L) L\<close>
+  proof (induct arbitrary: L rule: fix_ind)
+    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D  BBuf_any (length L) L)\<close> by (simp add: monofunI)
+  next
+    show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D  BBuf_any (length L) L\<close> for L :: \<open>'a list\<close> by simp
+  next
+    fix X :: \<open>'a buffer_any_event process\<close> and L :: \<open>'a list\<close>
+    assume hyp : \<open>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any (length L) L\<close> for L
+    show \<open>(\<Lambda> X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<cdot>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any (length L) L\<close>
+    proof (subst beta_cfun)
+      show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
+    next
+      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf_any (length L) L\<close>
+        apply (subst BBuf_any_unfold)
+        apply simp
+      proof -
+        consider \<open>L = []\<close> \<open>length L < maxbuff\<close> | \<open>L \<noteq> []\<close> \<open>length L < maxbuff\<close>
+        | \<open>L \<noteq> []\<close> \<open>\<not> length L < maxbuff\<close> by auto \<comment> \<open>we use @{thm maxbuff_g0} here\<close>
+        thus \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D
+             (length L < maxbuff) \<^bold>&
+             (input_any\<^bold>?x \<rightarrow> BBuf_any (Suc (length L)) (L @ [x])) \<box>
+             (L \<noteq> []) \<^bold>& (output_any\<^bold>!hd L \<rightarrow> BBuf_any (length L - Suc 0) (tl L))\<close>
+          (is \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>)
+        proof cases
+          show \<open>L = [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_STOP)
+
+            apply (rule input_refine)
+            (*
+             apply (unfold read_def)
+             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+             apply simp_all*)
+            by (rule hyp[of \<open>[_]\<close>, simplified])
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply simp
+            apply (subst Ndet_id[symmetric])
+            apply (rule Ndet_trans_Det_FD)
+
+            apply (rule input_refine)
+            (*
+             apply (unfold read_def)
+             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+             *)
+             apply (metis hyp length_append_singleton)
+
+            apply (rule output_refine)
+           (* 
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+           *) by (metis One_nat_def hyp length_tl)
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> \<not> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+            apply (rule output_refine)
+           (* 
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+           *) by (metis One_nat_def hyp length_tl)
+        qed
+      qed
+    qed
+  qed
+qed
+
+corollary \<open>deadlock_free (BBuf_any 0 [])\<close>
+  by (metis deadlock_free_BBuf_any list.size(3))
+
+
+text \<open>The refinement\<close>
+
+
+lemma \<open>BBuf\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+proof (induct rule: BBuf.induct)
+  show \<open>adm (\<lambda>BBuf. BBuf\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer)\<close>
+    by (simp add: monofunI)
+next
+  show \<open>\<bottom>\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close> by simp
+next
+  fix B :: \<open>nat \<rightarrow> int list \<rightarrow> ringbuf_event process\<close>
+  assume \<open>B\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+  show \<open>(\<Lambda> sz buff.
+        (sz < maxbuff) \<^bold>& (input\<^bold>?xa \<rightarrow> B\<cdot>(sz + 1)\<cdot>(buff @ [xa])) \<box>
+        (0 < sz) \<^bold>& (output\<^bold>!hd buff \<rightarrow> B\<cdot>(sz - 1)\<cdot>(tl buff)))\<cdot>0\<cdot>[]
+        \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+  proof (simp add: Det_STOP) (* forbidden by the linter, but well... *)
+    show \<open>input\<^bold>?x \<rightarrow> B\<cdot>(Suc 0)\<cdot>[x] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+      apply (unfold RingBuffer_def Ring_def)
+      apply (subst Ctrl.unfold, simp add: Det_STOP)
+      (* some work here, probably easier with compactification *)
+      sorry
+  qed
+qed
+
+end
+
+
+
+end

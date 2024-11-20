@@ -1,0 +1,291 @@
+
+theory Bounded_Buffer_090924_verification
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
+          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+           "HOL-CSP.Assertions"
+begin
+
+\<comment> \<open> changes by Benoit from Bounded_Buffer_083024:
+
+    used a notation instead of a syntax for the guard,
+     and changed the guard priority to higher than the deterministic choice
+    added a definition of the unbounded buffer over an arbitrary type (we can not use the command fixrec for that, and the continuity proof is not trivial, we will have to investigate why someday)
+    corrected the Ring Buffer definition. 
+    Some \bold before ! or ? were missing, and the priority of the guard was a problem. 
+    Basically I added a lot of parenthesis (especially around the mod operator) .
+\<close>
+
+default_sort type
+
+definition Guard :: \<open>bool \<Rightarrow> 'e process \<Rightarrow> 'e process\<close> (infixl \<open>\<^bold>&\<close> 81)
+  where \<open>b \<^bold>& P \<equiv> if b then P else STOP\<close>
+
+lemma Guard_cont [simp] : \<open>cont P \<Longrightarrow> cont (\<lambda>x. b \<^bold>& P x)\<close>
+  by (simp add: Guard_def)
+
+(* 
+syntax 
+  "_Guard" :: "logic \<Rightarrow> logic \<Rightarrow> logic" ("_ \<^bold>& _" [76,75] 75)
+
+translations "_Guard b P" == "CONST Guard b P"
+
+term \<open>a \<^bold>& P \<^bold>& Q\<close>
+ *)
+term \<open>e \<rightarrow> a\<close>
+subsection\<open>The bounded buffer processes definition\<close>
+
+locale BoundedBuffer =
+  
+fixes maxring :: nat and maxbuff :: nat 
+assumes maxring_g0 [simp] : \<open>maxring = maxbuff - 1\<close>  and maxbuff_g0 [simp] : \<open>maxbuff > 0\<close>
+  \<comment> \<open>The maximum size of the ring is one less than the size of the buffer, as the head is cached.\<close>
+
+begin
+
+datatype buffer_event = rd "nat \<times> int" | wrt "nat \<times> int" | input int | "output" int
+
+(*
+\<comment> \<open>The process Buffer has two channels: input and output.\<close>
+datatype buffer_event = input int | "output" int
+*)
+
+\<comment> \<open>A simple bounded reactive FIFO buffer 'BBuf' that is used to store natural numbers.\<close>
+\<comment> \<open>There are two state variables:  the buffer size sz the contents of the buffer buff. 
+These two are presented as parameters.\<close>
+definition BBuf :: \<open>nat \<Rightarrow> int list \<Rightarrow> buffer_event process\<close> 
+  where    \<open>BBuf \<equiv> \<mu> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                    (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff))) \<close>
+\<comment> \<open>The input action is enabled if there is space in the buffer for the new input: sz < maxbuff.
+ The new element is appended to the buffer's contents and the size is updated\<close>
+\<comment> \<open>The output action is enabled if there is something in the buffer: sz>0. The first element (head) is
+output; the others are retained in order; the size of the buffer is updated.\<close>
+
+lemma BBuf_unfold :
+  \<open>BBuf sz buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf (sz+1) (buff @ [x]))  \<box>
+                  (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf (sz-1) (tl buff))\<close>
+  (is \<open>BBuf sz buff = ?f BBuf sz buff \<box> ?g BBuf sz buff\<close>)
+proof (subst cont_process_rec[OF BBuf_def[THEN meta_eq_to_obj_eq]])
+  show \<open>cont (\<lambda>x sz buff. ?f x sz buff \<box> ?g x sz buff)\<close>
+  proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+      show \<open>\<And>sz buff. cont (\<lambda>x. ?f x sz buff)\<close>
+      apply (rule Guard_cont)
+      apply (rule read_cont)
+      apply (rule cont2cont_lambda)
+      by (rule cont2cont_fun, simp add: cont_fun)
+  next
+    show \<open>\<And>sz buff. cont (\<lambda>x. ?g x sz buff)\<close>
+      apply (rule Guard_cont)
+      apply (rule write_cont)
+      by (metis cont2cont_fun cont_fun)
+  qed
+qed simp
+  
+
+datatype 'a buffer_any_event =  input_any 'a | output_any 'a
+
+definition BBuf_any :: \<open>nat \<Rightarrow> 'a list \<Rightarrow> 'a buffer_any_event process\<close>
+  where \<open>BBuf_any \<equiv> \<mu> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                     (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff))) \<close>
+
+
+lemma BBuf_any_unfold :
+  \<open>BBuf_any sz buff = (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> BBuf_any (sz+1) (buff @ [x]))  \<box>
+                      (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> BBuf_any (sz-1) (tl buff))\<close>
+  (is \<open>BBuf_any sz buff = ?f BBuf_any sz buff \<box> ?g BBuf_any sz buff\<close>)
+proof (subst cont_process_rec[OF BBuf_any_def[THEN meta_eq_to_obj_eq]])
+  show \<open>cont (\<lambda>x sz buff. ?f x sz buff \<box> ?g x sz buff)\<close>
+  proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+    show \<open>\<And>sz buff. cont (\<lambda>x. ?f x sz buff)\<close>
+        (* TODO: understand why is the continuity proof so difficult *)
+      apply (rule Guard_cont)
+      apply (rule read_cont)
+      apply (rule cont2cont_lambda)
+      by (rule cont2cont_fun, simp add: cont_fun)
+  next
+    show \<open>\<And>sz buff. cont (\<lambda>x. ?g x sz buff)\<close>
+      apply (rule Guard_cont)
+      apply (rule write_cont)
+      by (metis cont2cont_fun cont_fun)
+  qed
+qed 
+  
+
+
+
+
+\<comment> \<open>The indexes of the ring go from 0 to maxring-1.\<close>
+definition ringindex ::  \<open>nat set\<close> where \<open>ringindex = {0..<maxring}\<close> 
+
+\<comment> \<open>The channels rd and wrt are used for communication with the ring cells.\<close>
+\<comment> \<open>The values communicated through rd and wrt are pairs, where the first element iden-
+tifes a cell, and the second element is the number actually communicated.\<close>
+(*datatype ringbuf_event = rd "nat \<times> int" | wrt "nat \<times> int" | input int | "output" int
+*)
+\<comment> \<open>The solution is to cache the head (first element, bottom of stack) of the ring in the controller, and distribute
+only the tail of the buffer around the ring.\<close>
+\<comment> \<open>The state of the controller contains the size of the buffer (sz), the cache,
+and two ring indexes, keeping track of the index of the next available position (top)
+and the index of the first value stored (bot).\<close>
+
+definition Cell:: \<open>nat  \<Rightarrow> int  \<Rightarrow> buffer_event process\<close> 
+  where  \<open>Cell  \<equiv> \<mu> X. (\<lambda>n v. (rd\<^bold>!(n,v) \<rightarrow> X n v)  \<box>
+               (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> X n x) )\<close>
+
+
+lemma Cell_unfold:
+  "Cell n v =  (rd\<^bold>!(n,v) \<rightarrow> Cell n v)  \<box>
+               (wrt\<^bold>?(i,x) \<in> ({i. i = n} \<times> UNIV) \<rightarrow> Cell n x) "
+  
+  apply(simp add: Cell_def)
+
+  apply( rule trans)
+
+  sorry
+ 
+
+definition RingCell :: \<open>nat \<Rightarrow> buffer_event process\<close> 
+  where  \<open>RingCell \<equiv> \<mu> X. (\<lambda>n. (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell n x)) \<close>
+
+lemma RingCell_unfold:
+  "RingCell n  =  (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell n x) "
+  apply(simp add: RingCell_def)
+
+  apply( rule trans)
+
+  apply(simp add: Cell_def)
+  sorry
+
+
+
+definition Ctrl  :: \<open>nat \<Rightarrow> int \<Rightarrow> nat  \<Rightarrow> nat  \<Rightarrow> buffer_event process\<close> 
+  where  \<open>Ctrl \<equiv> \<mu> X. (\<lambda>sz cache to bo.
+                        ((sz< maxbuff)  \<^bold>& (input\<^bold>?x \<rightarrow> ( (sz=0) \<^bold>& X 1 x to bo)  \<box>
+                                                      ((sz>0) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow> X (sz+1) cache ((to+1)mod maxring) bo)) )
+                                  
+                        \<box>
+
+                        (((sz > 0) \<^bold>& (output\<^bold>!cache \<rightarrow>
+                              ((sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> X (sz-1) x to ((bo+1)mod maxring)) )
+                              \<box>
+                              (sz=1) \<^bold>& X 0 cache to bo  ) ))))\<close>
+
+\<comment> \<open>Controller: The input action depends on whether the buffer is empty: sz=0. 
+If it is empty, then this input must be kept in the cache, not in the ring cell; 
+if it is non-empty and there is space in the buffer, then the controller transmits
+the input x to the cell at the top of the ring, the top index advances 
+(the index of the next available position).the cache is ocuppied and unchanged. 
+if it is full, then no input action is possible. 
+When the input is cached, the top and bot indexes do not change.
+\<close>
+\<comment> \<open>Controller: The output always comes from the cache, which must be replaced if the ring is non-empty. 
+The output action ' output!cache' is enabled when the buffer is non-empty: sz>0. 
+In the case that the ring is empty, we have size = 1, the value is stored in cache; 
+after output, buffer size sz is reset to 0; nothing else changes.? ? cache = null? ?
+If the ring is non-empty: sz>1,
+the controller obtains the input x from the cell at the bot of the ring.\<close>
+
+lemma Ctrl_unfold:
+"Ctrl sz cache to bo = 
+     ( (( sz< maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow>
+                                 ((sz=0) \<^bold>& Ctrl 1 x to bo)  \<box>
+                                 ((sz>0) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow> Ctrl (sz+1) cache ((to+1)mod maxring) bo)) ))
+                                  
+    \<box>
+    ( (sz > 0) \<^bold>& (output\<^bold>!cache \<rightarrow>
+                              ((sz>1) \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> Ctrl  (sz-1) x to ((bo+1)mod maxring)) )
+                              \<box>
+                              ((sz=1) \<^bold>& Ctrl 0 cache to bo) ) )
+    )"
+
+ (is \<open>Ctrl sz cache to bo = ?f Ctrl sz cache to bo \<box> ?g Ctrl sz cache to bo\<close>)
+proof (subst cont_process_rec[OF Ctrl_def[THEN meta_eq_to_obj_eq]])
+  show \<open>cont (\<lambda>x sz cache to bo. ?f x sz cache to bo \<box> ?g x sz cache to bo)\<close>
+  proof (rule cont2cont_lambda, rule cont2cont_lambda)
+    oops
+
+
+
+definition
+\<open>Ring \<equiv> \<^bold>|\<^bold>|\<^bold>| i \<in># mset [0..<maxring]. RingCell i \<close>
+
+
+
+definition Syn  :: \<open>buffer_event set\<close>
+  where     \<open>Syn  \<equiv> {rd x | x. True} \<union> {wrt x | x . True}\<close>
+
+definition RingBuffer :: \<open>buffer_event process\<close>
+  where \<open>RingBuffer \<equiv> ((Ctrl 0 0 0 0 \<lbrakk>Syn\<rbrakk> Ring) \ Syn)\<close>
+
+
+
+lemma impl_refines_spec : " BBuf 0 []  \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer"
+  oops
+
+
+lemma Mndetprefix_trans_subset_FD : 
+  \<open>A \<noteq> {} \<Longrightarrow> A \<subseteq> B \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> Q a \<sqsubseteq>\<^sub>F\<^sub>D P a) \<Longrightarrow>
+   Mndetprefix B Q \<sqsubseteq>\<^sub>F\<^sub>D Mndetprefix A P\<close>
+  by (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
+
+lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
+  by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
+
+
+
+lemma DF_BBuf : "(DF UNIV) \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L"
+proof (unfold  DF_def)
+show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L\<close>
+  proof (induct arbitrary: L rule: fix_ind)
+    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L)\<close> by (simp add: monofunI)
+  next
+    show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L\<close> for L by simp
+  next
+    fix X L assume hyp : \<open>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L\<close> for L
+    show \<open>(\<Lambda> X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<cdot>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L\<close>
+    proof (subst beta_cfun)
+      show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
+    next
+      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf (length L) L\<close>
+        apply (subst BBuf_unfold)
+        apply simp
+      proof -
+        consider \<open>L = []\<close> \<open>length L < maxbuff\<close> | \<open>L \<noteq> []\<close> \<open>length L < maxbuff\<close>
+        | \<open>L \<noteq> []\<close> \<open>\<not> length L < maxbuff\<close> by auto \<comment> \<open>we use @{thm maxbuff_g0} here\<close>
+        thus \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D
+             (length L < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf (Suc (length L)) (L @ [x])) \<box>
+             (L \<noteq> []) \<^bold>& (output\<^bold>!hd L \<rightarrow> BBuf (length L - Suc 0) (tl L))\<close>
+          (is \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>)
+        proof cases
+          show \<open>L = [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_STOP)
+            apply (simp add: read_def)
+         (*   apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
+              apply simp_all
+            by (rule hyp[of \<open>[_]\<close>, simplified])
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply simp
+            apply (subst Ndet_id[symmetric])
+            apply (rule Ndet_trans_Det_FD)
+
+             apply (unfold read_def)
+             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+             apply (metis hyp length_append_singleton)
+
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+            by (metis One_nat_def hyp length_tl)
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> \<not> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+            by (metis One_nat_def hyp length_tl)
+        qed
+      qed
+    qed
+  qed
+*)
+
+end
+end

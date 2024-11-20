@@ -1,0 +1,602 @@
+
+theory Bounded_Buffer_131024_ProcOmata_ddl_refinement
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
+          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+          "HOL-CSP_OpSem.Determinism" "HOL-CSP_Proc-Omata.NormalizationProperties"
+          "Guard"
+begin
+\<comment> \<open>This verion builds Proc-Omata for Bounded Buffer and Ring Buffer for the verification purpose.
+ the proof is incomplete.\<close>
+
+default_sort type
+
+
+no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
+no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
+
+no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
+
+
+subsection\<open>The bounded buffer processes definition in HOL-CSP using fixrec\<close>
+
+locale BoundedBuffer =
+  fixes maxbuff :: nat
+  \<comment> \<open>The buffer is bounded in its length: it may hold no more than maxbuff elements\<close>
+  assumes maxbuff_g0 [simp] : \<open>maxbuff > 0\<close>  
+
+begin
+
+
+datatype 'a buffer_event =  input 'a | "output" 'a | rd \<open>nat \<times> 'a\<close> | wrt \<open>nat \<times>'a\<close> 
+
+\<comment> \<open>The process Buffer has two channels: input and output.\<close>
+type_synonym ringbuf_event = \<open>int buffer_event\<close>
+\<comment> \<open>The channels rd and wrt are used for communication with the ring cells.\<close>
+\<comment> \<open>The values communicated through rd and wrt are pairs, where the first element iden-
+tifes a cell, and the second element is the number actually communicated.\<close>
+
+\<comment> \<open>A simple bounded reactive FIFO buffer 'BBuf' that is used to store natural numbers.\<close>
+\<comment> \<open>There are two state variables:  the buffer size sz, the contents of the buffer buff. 
+These two are presented as parameters.\<close>
+fixrec BBuf_int :: \<open>nat \<rightarrow> int list \<rightarrow> ringbuf_event process\<close> where
+  [simp del]: \<open>BBuf_int\<cdot>sz\<cdot>buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf_int\<cdot>(sz+1)\<cdot>(buff @ [x]))  \<box>
+                  (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf_int\<cdot>(sz-1)\<cdot>(tl buff)) \<close>
+\<comment> \<open>The input action is enabled if there is space in the buffer for the new input: sz < maxbuff.
+ The new element is appended to the buffer's contents and the size is updated\<close>
+\<comment> \<open>The output action is enabled if there is something in the buffer: sz>0. The first element (head) is output; the others are retained in order; the size of the buffer is updated.\<close>
+
+
+
+
+definition BBuf :: \<open>nat \<Rightarrow> 'a list \<Rightarrow> 'a buffer_event process\<close>
+  where \<open>BBuf \<equiv> \<mu> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                     (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff))) \<close>
+
+lemma BBuf_cont : 
+  \<open>cont (\<lambda>x sz buff. (sz < maxbuff) \<^bold>& (input\<^bold>?xa \<rightarrow> x (sz + 1) (buff @ [xa])) \<box>
+                     (0 < sz) \<^bold>& (output\<^bold>!hd buff \<rightarrow> x (sz - 1) (tl buff)))\<close>
+  (is \<open>cont (\<lambda>x sz buff. ?f x sz buff \<box> ?g x sz buff)\<close>)
+proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+  show \<open>\<And>sz buff. cont (\<lambda>x. ?f x sz buff)\<close>
+      (* TODO: understand why the continuity proof is so difficult *)
+    apply (rule Guard_cont)
+    apply (rule read_cont)
+    apply (rule cont2cont_lambda)
+    by (rule cont2cont_fun, simp add: cont_fun)
+next
+  show \<open>\<And>sz buff. cont (\<lambda>x. ?g x sz buff)\<close>
+    apply (rule Guard_cont)
+    apply (rule write_cont)
+    by (metis cont2cont_fun cont_fun)
+qed
+
+lemma BBuf_unfold :
+  \<open>BBuf sz buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf (sz+1) (buff @ [x]))  \<box>
+                      (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf (sz-1) (tl buff))\<close>
+  (is \<open>BBuf sz buff = ?f BBuf sz buff \<box> ?g BBuf sz buff\<close>)
+  by (subst cont_process_rec[OF BBuf_def[THEN meta_eq_to_obj_eq] BBuf_cont]) simp
+
+
+
+lemma BBuf_int_is_BBuf : \<open>BBuf_int\<cdot>sz\<cdot>L = BBuf sz L\<close>
+proof (rule FD_antisym)
+  show \<open>BBuf_int\<cdot>sz\<cdot>L \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close>
+    apply (induct arbitrary: sz L rule: BBuf_int.induct)
+    subgoal by (simp add: monofunI)
+    subgoal by simp
+    subgoal by (subst BBuf_unfold, simp add: Guard_def) .
+next
+  show \<open>BBuf sz L \<sqsubseteq>\<^sub>F\<^sub>D BBuf_int\<cdot>sz\<cdot>L\<close>
+    apply (unfold BBuf_def,
+           induct arbitrary: sz L rule: fix_ind[where F = \<open>\<Lambda> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                                                           (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff)))\<close>])
+    subgoal
+      apply (intro adm_all le_FD_adm)
+       apply (metis cont2cont_fun cont_fun)
+      by (simp add: monofunI)
+    subgoal by simp
+    subgoal apply (subst beta_cfun[OF BBuf_cont])
+    apply (subst BBuf_int.unfold)
+      by (simp add: Guard_def) .
+qed
+
+
+
+subsection \<open>2. Translation into normal form - Proc-Omata\<close>
+\<comment> \<open>BOTH transition function AND Enableness function are manually and explicitely defined\<close>
+
+\<comment> \<open>Automaton\<close>
+definition BBuf_A :: \<open>(nat \<times> 'a list, 'a buffer_event) A\<^sub>d\<close>
+  where
+ \<open>BBuf_A \<equiv> \<lparr>
+          \<tau> = \<lambda>s e. case s of (sz, L) \<Rightarrow> 
+                    (case e of input x \<Rightarrow> if sz < maxbuff then \<lfloor>(Suc sz, L @ [x])\<rfloor> else \<diamond>
+                             | output x \<Rightarrow> if 0 < sz \<and> hd L = x then \<lfloor>(sz - 1, tl L)\<rfloor> else \<diamond>
+                             | rd _ \<Rightarrow> \<diamond> | wrt _ \<Rightarrow> \<diamond>),
+          \<S>\<^sub>F = {}, \<S>\<^sub>I = {}\<rparr>\<close>
+\<comment> \<open> note :  \<and> hd L = x  \<close>
+
+\<comment> \<open>Enableness: enabled event set\<close>
+lemma BBuf_\<epsilon> :
+  \<open>\<epsilon> BBuf_A s = (case s of (sz, L) \<Rightarrow>
+                       if sz < maxbuff
+                     then   if 0 < sz
+                          then {output (hd L)} \<union> range input
+                          else range input
+                     else {output (hd L)})\<close> (* necessarily then 0 < sz *)
+  by (auto simp add: BBuf_A_def \<epsilon>_simps image_iff split: buffer_event.splits if_splits)
+     (use bot_nat_0.not_eq_extremum maxbuff_g0 in blast)
+
+\<comment> \<open>transition function \<tau>, why do we need to define it one more time?\<close>
+lemma BBuf_\<tau> :
+  \<open>\<tau> BBuf_A s e = (case s of (sz, L) \<Rightarrow> (case e of input x \<Rightarrow> if sz < maxbuff then \<lfloor>(Suc sz, L @ [x])\<rfloor> else \<diamond>
+                                                   | output x \<Rightarrow> if 0 < sz \<and> hd L = x then \<lfloor>(sz - 1, tl L)\<rfloor> else \<diamond>
+                                                   | rd _ \<Rightarrow> \<diamond> | wrt _ \<Rightarrow> \<diamond>))\<close>
+  by (simp add: BBuf_A_def)
+
+\<comment> \<open>Proc-Omaton\<close>
+definition BBuf_P_d :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_event process\<close>
+  where \<open>BBuf_P_d s \<equiv> P\<lbrakk>BBuf_A\<rbrakk>\<^sub>d s\<close>
+
+
+
+\<comment> \<open>Equivalence\<close>
+lemma BBuf_is_BBuf_P_d: \<open>BBuf sz L = BBuf_P_d (sz, L)\<close> for L :: \<open>'a list\<close>
+proof (rule sym, unfold BBuf_P_d_def,
+       rule deterministic_iff_maximal_for_leFD[THEN iffD1, OF deterministic_P_d, rule_format])
+  show \<open>P\<lbrakk>BBuf_A\<rbrakk>\<^sub>d (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close>
+  proof (induct arbitrary: sz L rule: fix_ind[where F = \<open>\<Lambda> X. P_d_step (\<epsilon> BBuf_A) (\<tau> BBuf_A) X\<close>])
+    show \<open>adm (\<lambda>a. \<forall>sz L. a (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L)\<close>
+      by (simp add: cont_fun monofunI)
+  next
+    show \<open>\<bottom> (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close> for sz and L :: \<open>'a list\<close> by simp
+  next
+    fix X :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_event process\<close> and sz L
+    assume hyp : \<open>X (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close> for sz L
+    show \<open>((\<Lambda> X. P_d_step (\<epsilon> BBuf_A) (\<tau> BBuf_A) X)\<cdot>X) (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close>
+      apply (subst BBuf_unfold, simp add: BBuf_\<epsilon> Det_STOP Mprefix_Un_distrib)
+      apply (intro conjI impI)
+        apply (subst Mprefix_Un_distrib[of \<open>{_}\<close>, simplified])
+        apply (subst Det_commute)
+        apply (rule mono_Det_FD)
+         apply (unfold read_def)
+         apply (intro mono_Mprefix_FD ballI)
+         apply (auto simp add: BBuf_\<tau> image_iff)[1]
+         apply (subst inv_f_f, meson buffer_event.simps(1) inj_onI)
+         apply (solves \<open>simp add: hyp\<close>)
+
+        apply (unfold write_def)
+        apply (intro mono_Mprefix_FD ballI)
+        apply (simp add: BBuf_\<tau> image_iff)
+        apply (solves \<open>simp add: hyp\<close>)
+
+       apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+       apply (intro mono_Mprefix_FD ballI)
+       apply (simp add: BBuf_\<tau> image_iff)
+       apply (solves \<open>simp add: hyp\<close>)
+
+      apply (intro mono_Mprefix_FD ballI)
+      apply (auto simp add: BBuf_\<tau>)[1]
+      apply (subst inv_f_f, meson buffer_event.simps(1) inj_onI)
+      by (solves \<open>simp add: hyp\<close>)
+  qed
+qed
+
+
+
+lemma BBuf_is_BBuf_P_d_ : \<open>BBuf sz L = BBuf_P_d (sz, L)\<close> for L :: \<open>'a list\<close>
+  \<comment> \<open>More automatized proof\<close>
+proof (rule sym, unfold BBuf_P_d_def,
+       rule deterministic_iff_maximal_for_leFD[THEN iffD1, OF deterministic_P_d, rule_format])
+  show \<open>P\<lbrakk>BBuf_A\<rbrakk>\<^sub>d (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close>
+  proof (induct arbitrary: sz L rule: fix_ind[where F = \<open>\<Lambda> X. P_d_step (\<epsilon> BBuf_A) (\<tau> BBuf_A) X\<close>])
+    show \<open>adm (\<lambda>a. \<forall>sz L. a (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L)\<close>
+      by (simp add: cont_fun monofunI)
+  next
+    show \<open>\<bottom> (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close> for sz and L :: \<open>'a list\<close> by simp
+  next
+    have * : \<open>inv input (input x) = x\<close> for x :: 'a
+      by (meson buffer_event.simps(1) f_inv_into_f range_eqI)
+    fix X :: \<open>nat \<times> 'a list \<Rightarrow> 'a buffer_event process\<close> and sz L
+    assume hyp : \<open>X (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close> for sz L
+    show \<open>((\<Lambda> X. P_d_step (\<epsilon> BBuf_A) (\<tau> BBuf_A) X)\<cdot>X) (sz, L) \<sqsubseteq>\<^sub>F\<^sub>D BBuf sz L\<close>
+      apply (subst BBuf_unfold, simp add: BBuf_\<epsilon> Det_STOP Mprefix_Un_distrib)
+      apply (intro conjI impI)
+        apply (unfold read_def write_def Mprefix_Det_Mprefix)
+        apply (subst Un_commute)
+        apply (simp) (* Why do we nee a simp here ??? *)
+        apply (intro mono_Mprefix_FD ballI)
+        apply (auto simp add: image_iff BBuf_\<tau> "*" intro : hyp)[1]
+
+       apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+       apply (intro mono_Mprefix_FD ballI)
+       apply (simp add: BBuf_\<tau> hyp)
+      apply (intro mono_Mprefix_FD ballI)
+      by (auto simp add: BBuf_\<tau> "*" hyp)
+  qed
+qed
+
+
+
+     
+
+theorem deadlock_free_BBuf : \<open>deadlock_free (BBuf n L)\<close>
+  apply (simp add: BBuf_is_BBuf_P_d BBuf_P_d_def P_d_deadlock_free_iff)
+  by (auto simp add: BBuf_\<epsilon> split: if_split_asm)
+
+
+
+
+(* the four following lemmas are not useful for now *)
+(*
+lemma Nil_\<R>\<^sub>d_BBuf : \<open>(0, []) \<in> \<R>\<^sub>d BBuf_A (length L, L)\<close>
+proof (induct L)
+  show \<open>(0, []) \<in> \<R>\<^sub>d BBuf_A (length [], [])\<close> by (simp add: \<R>\<^sub>d.init)
+next
+  fix L :: \<open>'a list\<close> and x assume hyp : \<open>(0, []) \<in> \<R>\<^sub>d BBuf_A (length L, L)\<close>
+  show \<open>(0, []) \<in> \<R>\<^sub>d BBuf_A (length (x # L), x # L)\<close>
+    apply (rule \<R>\<^sub>d_trans[OF hyp])
+    apply (rule \<R>\<^sub>d.step[OF \<R>\<^sub>d.init, of _ _ _ \<open>output x\<close>])
+    by (simp add: BBuf_\<tau>)
+qed
+
+lemma BBuf_\<R>\<^sub>d_Nil : \<open>\<R>\<^sub>d BBuf_A (0, []) = {(length L, L)| L. length L \<le> maxbuff}\<close>
+proof safe
+  show \<open>(sz, L) \<in> \<R>\<^sub>d BBuf_A (0, []) \<Longrightarrow> \<exists>L'. (sz, L) = (length L', L') \<and> length L' \<le> maxbuff\<close> for sz L
+  proof (induct rule: \<R>\<^sub>d.induct)
+    show \<open>\<exists>L'. (0, []) = (length L', L') \<and> length L' \<le> maxbuff\<close> by simp
+  next
+    fix t u e
+    assume * : \<open>t \<in> \<R>\<^sub>d BBuf_A (0, [])\<close> \<open>\<exists>L'. t = (length L', L') \<and> length L' \<le> maxbuff\<close> \<open>\<lfloor>u\<rfloor> = \<tau> BBuf_A t e\<close>
+    from "*"(2) obtain L' where \<open>t = (length L', L')\<close> \<open>length L' \<le> maxbuff\<close> by blast
+    show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+    proof (cases e)
+      fix x assume \<open>e = input x\<close>
+      with "*"(3) \<open>t = (length L', L')\<close>
+      show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+        apply (intro exI[where x = \<open>L' @ [x]\<close>])
+        by (simp add: BBuf_\<tau> split: prod.split_asm if_split_asm)
+    next
+      fix x assume \<open>e = output x\<close>
+      with "*"(3) \<open>t = (length L', L')\<close> \<open>length L' \<le> maxbuff\<close>
+      show \<open>\<exists>L'. u = (length L', L') \<and> length L' \<le> maxbuff\<close>
+        apply (intro exI[where x = \<open>tl L'\<close>])
+        by (simp add: BBuf_\<tau> split: prod.split_asm if_split_asm)
+    qed
+  qed
+next
+  show \<open>length L \<le> maxbuff \<Longrightarrow> (length L, L) \<in> \<R>\<^sub>d BBuf_A (0, [])\<close> for L
+  proof (induct L rule: rev_induct)
+    show \<open>length [] \<le> maxbuff \<Longrightarrow> (length [], []) \<in> \<R>\<^sub>d BBuf_A (0, [])\<close>
+      by (simp add: \<R>\<^sub>d.init)
+  next
+    fix e L
+    assume hyp : \<open>length L \<le> maxbuff \<Longrightarrow> (length L, L) \<in> \<R>\<^sub>d BBuf_A (0, [])\<close>
+      and prem : \<open>length (L @ [e]) \<le> maxbuff\<close>
+    show \<open>(length (L @ [e]), L @ [e]) \<in> \<R>\<^sub>d BBuf_A (0, [])\<close>
+      apply (rule \<R>\<^sub>d.step[OF hyp, of _ \<open>input e\<close>])
+      using prem apply auto[1]
+      apply (simp add: BBuf_\<tau>)
+      using prem by auto[1]
+  qed
+qed
+    
+
+lemma events_BBuf: \<open>events_of (BBuf 0 []) = range input \<union> range output\<close>
+  apply (simp add: BBuf_is_BBuf_P_d BBuf_P_d_def events_P_d BBuf_\<R>\<^sub>d_Nil)
+  apply (auto simp add: BBuf_\<epsilon> image_iff split: if_split_asm)
+  by (metis Ex_list_of_length length_Cons list.sel(1) maxbuff_g0 neq_Nil_conv not_less_iff_gr_or_eq)
+ 
+
+lemma initials_BBuf: \<open>(BBuf (length L) L)\<^sup>0 =
+                          (if length L < maxbuff then ev ` range input else {}) \<union>
+                          (if 0 < length L then {ev (output (hd L))} else {})\<close>
+  by (subst cont_process_rec[OF BBuf_def[THEN meta_eq_to_obj_eq] BBuf_cont])
+     (auto simp add: initials_STOP write_def read_def comp_def initials_Det initials_Mprefix image_iff)
+
+
+*)
+
+\<comment> \<open>Automaton\<close>
+
+abbreviation BBuf_int_A :: \<open>(nat \<times> int list, ringbuf_event) A\<^sub>d\<close>
+  where \<open>BBuf_int_A \<equiv> BBuf_A\<close>
+
+lemmas BBuf_int_\<epsilon> = BBuf_\<epsilon>[of s]
+   and BBuf_int_\<tau> = BBuf_\<tau>[of s] for s :: \<open>nat \<times> int list\<close>
+
+
+abbreviation BBuf_int_P_d :: \<open>nat \<times> int list \<Rightarrow> ringbuf_event process\<close>
+  where \<open>BBuf_int_P_d \<equiv> BBuf_P_d\<close>
+
+lemmas BBuf_int_is_BBuf_int_P_d = BBuf_is_BBuf_P_d[of sz L, folded BBuf_int_is_BBuf]
+  for sz :: nat and L :: \<open>int list\<close>
+
+lemmas deadlock_free_BBuf_int = deadlock_free_BBuf[of sz L, folded BBuf_int_is_BBuf]
+  for sz :: nat and L :: \<open>int list\<close>
+
+  
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+subsection\<open>The Ring Buffer processes definition in HOL-CSP using fixrec\<close>
+
+
+\<comment> \<open>An implementation uses a ring of cells, each implemented as a  process, and a central controller that keeps track of
+the indexes of the first and last elements (bot, top), offering the input and output services.\<close>
+context BoundedBuffer
+begin
+
+definition maxring :: nat where \<open>maxring \<equiv> maxbuff - 1\<close>
+\<comment> \<open>The maximum size of the ring is one less than the size of the buffer, as the head is cached.\<close>
+
+declare maxring_def [simp]
+
+
+\<comment> \<open>The indexes of the ring go from 0 to maxring-1.\<close>
+definition ringindex ::  \<open>nat set\<close> where \<open>ringindex = {0..<maxring}\<close> 
+
+
+\<comment> \<open>The impl solution is to cache the head (first element, bottom of stack) of the ring in the controller, 
+and distribute only the tail of the buffer around the ring.\<close>
+\<comment> \<open>The state of the controller contains the size of the buffer (sz), the cache,
+and two ring indexes, keeping track of the index of the next available position (top)
+and the index of the first value stored (bot).\<close>
+
+
+fixrec  Cell_int     :: \<open>nat \<rightarrow> int \<rightarrow> int buffer_event  process\<close> 
+    and RingCell_int :: \<open>nat \<rightarrow> int buffer_event  process\<close>  
+    and Ctrl_int     :: \<open>nat \<rightarrow> int \<rightarrow> nat  \<rightarrow> nat  \<rightarrow> int buffer_event  process\<close> 
+
+where
+
+[simp del] : \<open>Cell_int\<cdot>n\<cdot>v =  (rd\<^bold>!(n,v) \<rightarrow> Cell_int\<cdot>n\<cdot>v)  \<box>
+               (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell_int\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>RingCell_int\<cdot>n = (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell_int\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>Ctrl_int\<cdot>sz\<cdot>cache\<cdot>to\<cdot>bo = ((input\<^bold>?x \<rightarrow> ((sz=0) \<^bold>& Ctrl_int\<cdot>1\<cdot>x\<cdot>to\<cdot>bo)  \<box>
+                                    ((sz>0 \<and> sz< maxbuff) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow>
+ Ctrl_int\<cdot>(sz+1)\<cdot>cache\<cdot>((to+1)mod maxring) \<cdot> bo)) )
+                                  
+                        \<box>
+                        (((sz > 0) \<^bold>& (output\<^bold>!cache \<rightarrow>
+                              ((sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> Ctrl_int\<cdot>(sz-1)\<cdot>x\<cdot>to\<cdot>((bo+1)mod maxring)))
+                              \<box>
+                              (sz=1) \<^bold>& Ctrl_int\<cdot>0\<cdot>cache\<cdot>to\<cdot>bo  ) )))\<close>
+
+
+
+\<comment> \<open>RingBuffer modellign using fixed-point operator\<close>
+  
+
+
+definition Cell :: \<open>nat \<Rightarrow> 'a  \<Rightarrow> 'a buffer_event process\<close>
+ where \<open>Cell \<equiv> \<mu> X. (\<lambda>n v.(rd\<^bold>!(n,v) \<rightarrow> X n v)  \<box>
+                                   (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> X n x)
+                         ) \<close>
+
+lemma Cell_cont : 
+  \<open>cont (\<lambda>x n v.(rd\<^bold>!(n,v) \<rightarrow> x n v)  \<box>
+                (wrt\<^bold>?(i,xa) \<in> {i. i = n} \<times> UNIV \<rightarrow> x n xa) )\<close>
+  (is \<open>cont (\<lambda>x n v. ?f x n v \<box> ?g x n v)\<close>)
+proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+  show \<open>\<And>n v. cont (\<lambda>x. ?f x n v)\<close>
+    apply (rule write_cont)
+    by (rule cont2cont_fun, simp add: cont_fun)
+next
+  show \<open>\<And>n v. cont (\<lambda>x. ?g x n v)\<close>
+    apply (rule read_cont)
+    apply (rule cont2cont_lambda)
+    apply clarify (* splits the product case *)
+    apply (rule cont2cont_fun)
+    by (fact cont_fun)
+qed
+
+
+
+definition RingCell :: \<open>nat \<Rightarrow> 'a buffer_event process\<close>
+  where \<open>RingCell \<equiv> \<lambda>n . (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell n x) \<close>
+
+
+definition Ctrl :: \<open>nat \<Rightarrow>  'a \<Rightarrow> nat  \<Rightarrow>  nat \<Rightarrow>  'a buffer_event process\<close> 
+where \<open>Ctrl  \<equiv> \<mu> X.(\<lambda>sz cache to bo.
+                        ( ((sz< maxbuff)  \<^bold>&
+                             (input\<^bold>?x \<rightarrow>(
+                                       ( ( sz=0) \<^bold>& X 1 x to bo)  
+                                          \<box>
+                                       ( (sz>0 ) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow> X (sz+1) cache ((to+1)mod maxring)  bo))) ))
+                                  
+                        \<box>
+                        ((sz > 0)     \<^bold>& 
+                              (output\<^bold>!cache \<rightarrow>(
+                                       ( (sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> X (sz-1) x to ((bo+1)mod maxring)))
+                                          \<box>
+                                       ( (sz=1) \<^bold>& X 0 cache to bo ) ) ) )
+                      ))  \<close>
+
+
+lemma Crtr_cont : \<open>cont ((\<lambda>X sz cache to bo.
+                        ( ((sz< maxbuff)  \<^bold>&
+                             (input\<^bold>?x \<rightarrow>(
+                                       ( ( sz=0) \<^bold>& X 1 x to bo)  
+                                          \<box>
+                                       ( (sz>0 ) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow> X (sz+1) cache ((to+1)mod maxring)  bo))) ))
+                                  
+                        \<box>
+                        ((sz > 0)     \<^bold>& 
+                              (output\<^bold>!cache \<rightarrow>(
+                                       ( (sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> X (sz-1) x to ((bo+1)mod maxring)))
+                                          \<box>
+                                       ( (sz=1) \<^bold>& X 0 cache to bo ) ) ) )
+                      )))\<close>
+  (is \<open>cont (\<lambda>X sz cache to bo. ?f X sz cache to bo \<box> ?g X sz cache to bo)\<close>)
+
+proof (rule cont2cont_lambda, rule cont2cont_lambda, rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+  show \<open>\<And>sz cache to bo. cont (\<lambda>X. ?f X sz cache to bo)\<close>
+    apply (rule Guard_cont)
+    apply (rule read_cont)
+    apply (rule cont2cont_lambda)
+    apply (rule Det_cont)
+     apply (rule Guard_cont)
+    subgoal by (rule cont2cont_fun, rule cont2cont_fun, rule cont2cont_fun, rule cont_fun)
+    apply (rule Guard_cont)
+    apply (rule write_cont)
+    subgoal by (rule cont2cont_fun, rule cont2cont_fun, rule cont2cont_fun, rule cont_fun) .
+next
+  show \<open>\<And>sz cache to bo. cont (\<lambda>X. ?g X sz cache to bo)\<close>
+    apply (rule Guard_cont)
+    apply (rule write_cont)
+    apply (rule Det_cont)
+     apply (rule Guard_cont)
+     apply (rule read_cont)
+     apply (rule cont2cont_lambda)
+     apply clarify
+    subgoal by (rule cont2cont_fun, rule cont2cont_fun, rule cont2cont_fun, rule cont_fun)
+    apply (rule Guard_cont)
+    subgoal by (rule cont2cont_fun, rule cont2cont_fun, rule cont2cont_fun, rule cont_fun) .
+qed
+  
+thm Cell_def
+
+definition Cell_A :: "(nat \<times> 'a, 'a buffer_event) A\<^sub>d" (\<open>A\<^sub>c\<close>)
+  where "A\<^sub>c \<equiv> \<lparr>
+    \<tau> = (\<lambda>s e. case s of (n, v) \<Rightarrow> 
+                      (case e of 
+                             rd (i, x) \<Rightarrow> if i = n \<and> x = v then \<lfloor>(n, v)\<rfloor> else \<diamond>
+                           | wrt (i, x) \<Rightarrow> if i = n then \<lfloor>(n, x)\<rfloor> else \<diamond>
+                           | input _ \<Rightarrow> \<diamond>
+                           | output _ \<Rightarrow> \<diamond>)),
+    \<S>\<^sub>F = {}, 
+    \<S>\<^sub>I = {}  
+  \<rparr>"
+
+lemma Cell_\<epsilon> :
+  "\<epsilon> A\<^sub>c s = (case s of (n, v) \<Rightarrow> {rd (n, v)} \<union> range (\<lambda>x. wrt (n, x)))"
+  by (auto simp add: Cell_A_def \<epsilon>_simps split: buffer_event.splits if_splits)
+
+(* was "\<epsilon> A\<^sub>c s = (case s of (n, v) \<Rightarrow> {rd (n, v)} \<union> (range (\<lambda>x. wrt (n, x))))",
+   but this is False wrt. the definition *)
+
+lemma Cell_\<tau> :
+  \<open>\<tau> Cell_A s e =  (case s of (n, v) \<Rightarrow> 
+                      (case e of 
+                             rd (i, x) \<Rightarrow> if i = n \<and> x = v then \<lfloor>(n, v)\<rfloor> else \<diamond>
+                           | wrt (i, x) \<Rightarrow> if i = n then \<lfloor>(n, x)\<rfloor> else \<diamond>
+                           | input _ \<Rightarrow> \<diamond>
+                           | output _ \<Rightarrow> \<diamond>))\<close>
+  by (simp add: Cell_A_def)
+
+
+definition Cell_P_d :: \<open>nat \<Rightarrow> 'a \<Rightarrow> 'a buffer_event process\<close> where
+  \<open>Cell_P_d n v \<equiv> P\<lbrakk>A\<^sub>c\<rbrakk>\<^sub>d (n, v)\<close>
+
+lemma Cell_is_Cell_P_d : \<open>Cell n v = Cell_P_d n v\<close> for v :: 'a
+proof (rule sym, unfold Cell_P_d_def,
+       rule deterministic_iff_maximal_for_leFD[THEN iffD1, OF deterministic_P_d, rule_format])
+  show \<open>P\<lbrakk>A\<^sub>c\<rbrakk>\<^sub>d (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v\<close>
+  proof (induct arbitrary: n v rule: fix_ind[where F = \<open>\<Lambda> X. P_d_step (\<epsilon> A\<^sub>c) (\<tau> A\<^sub>c) X\<close>])
+    show \<open>adm (\<lambda>X. \<forall>n v. X (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v)\<close>
+      by (simp add: cont_fun monofunI)
+  next
+    show \<open>\<And>n v. \<bottom> (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v\<close> by simp
+  next
+    fix X :: \<open>nat \<times> 'a \<Rightarrow> 'a buffer_event process\<close> and n v
+    assume hyp : \<open>X (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v\<close> for n v
+    show \<open>((\<Lambda> X. P_d_step (\<epsilon> A\<^sub>c) (\<tau> A\<^sub>c) X)\<cdot>X) (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v\<close>
+    proof (subst beta_cfun)
+      show \<open>cont (P_d_step (\<epsilon> A\<^sub>c) (\<tau> A\<^sub>c))\<close> by simp
+    next
+      have * : \<open>range (\<lambda>x. wrt (n, x)) = wrt ` ({n} \<times> UNIV)\<close> by auto
+      have \<open>P_d_step (\<epsilon> A\<^sub>c) (\<tau> A\<^sub>c) X (n, v) = \<box>e\<in>{rd (n, v)} \<union> range (\<lambda>x. wrt (n, x)) \<rightarrow> X \<lceil>\<tau> A\<^sub>c (n, v) e\<rceil>\<close>
+        by (simp add: Cell_\<epsilon> Mprefix_Un_distrib)
+      also have \<open>\<dots> = (\<box>e\<in>{rd (n, v)} \<rightarrow> X \<lceil>\<tau> A\<^sub>c (n, v) e\<rceil>) \<box> (\<box>e \<in> range (\<lambda>x. wrt (n, x)) \<rightarrow> X \<lceil>\<tau> A\<^sub>c (n, v) e\<rceil>)\<close>
+        using Mprefix_Un_distrib by blast
+      also have \<open>\<dots> \<sqsubseteq>\<^sub>F\<^sub>D (rd\<^bold>!(n, v) \<rightarrow> Cell n v) \<box> read wrt ({i. i = n} \<times> UNIV) (\<lambda>(i, y). Cell n y)\<close>
+        apply (rule mono_Det_FD)
+        subgoal
+          apply (simp add: write_def)
+          apply (rule mono_Mprefix_FD)
+          by (simp add: Cell_\<tau> hyp)
+        subgoal 
+          apply (simp add: read_def)
+          apply (subst "*", rule mono_Mprefix_FD)
+          apply (simp add: Cell_\<tau>)
+          apply (rule allI)
+          apply (rule trans_FD[OF hyp])
+          apply (subst inv_into_f_f)
+            apply (simp add: inj_on_def)
+           apply simp
+          by simp .
+      also have \<open>\<dots> = Cell n v\<close>
+        apply (subst (3) cont_process_rec[OF Cell_def[THEN meta_eq_to_obj_eq] Cell_cont])
+        by (fact refl)
+      finally show \<open>P_d_step (\<epsilon> A\<^sub>c) (\<tau> A\<^sub>c) X (n, v) \<sqsubseteq>\<^sub>F\<^sub>D Cell n v\<close> .
+    qed
+  qed
+qed
+     
+
+
+
+definition
+\<open>Ring = \<^bold>|\<^bold>|\<^bold>| i \<in># mset [0..<maxring]. RingCell i \<close>
+
+
+definition Syn  :: \<open>'a buffer_event  set\<close>
+  where     \<open>Syn  \<equiv> {rd x | x. True} \<union> {wrt x | x . True}\<close>
+
+definition RingBuffer :: \<open>'a buffer_event process\<close>
+  where \<open>RingBuffer = (Ctrl 0 undefined 0 0 \<lbrakk>Syn\<rbrakk> Ring) \ Syn\<close>
+
+subsection\<open>Proc-Omata \<close>
+
+
+text \<open>Actually, the proof also works for the generalized version\<close>
+
+lemma deadlock_free_BBuf : \<open>deadlock_free (BBuf (length L) L)\<close>
+  oops
+
+text \<open>The refinement\<close>
+
+
+lemma \<open>BBuf 0 [] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+  oops
+proof (induct rule: BBuf.induct)
+  show \<open>adm (\<lambda>BBuf. BBuf\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer)\<close>
+    by (simp add: monofunI)
+next
+  show \<open>\<bottom>\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close> by simp
+next
+  fix B :: \<open>nat \<rightarrow> int list \<rightarrow> ringbuf_event process\<close>
+  assume \<open>B\<cdot>0\<cdot>[] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+  show \<open>(\<Lambda> sz buff.
+        (sz < maxbuff) \<^bold>& (input\<^bold>?xa \<rightarrow> B\<cdot>(sz + 1)\<cdot>(buff @ [xa])) \<box>
+        (0 < sz) \<^bold>& (output\<^bold>!hd buff \<rightarrow> B\<cdot>(sz - 1)\<cdot>(tl buff)))\<cdot>0\<cdot>[]
+        \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+  proof (simp add: Det_STOP) (* forbidden by the linter, but well... *)
+    show \<open>input\<^bold>?x \<rightarrow> B\<cdot>(Suc 0)\<cdot>[x] \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer\<close>
+      apply (unfold RingBuffer_def Ring_def)
+      apply (subst Ctrl.unfold, simp add: Det_STOP)
+      (* some work here, probably easier with compactification *)
+      sorry
+  qed
+qed
+
+end
+
+unused_thms
+
+end

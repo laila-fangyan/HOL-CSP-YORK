@@ -1,0 +1,67 @@
+
+theory Bounded_Buffer
+  imports "HOLCF-Library.Int_Discrete" "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+begin
+
+subsection\<open>The dining processes definition\<close>
+
+locale BoundedBuffer =
+  fixes maxbuff :: nat
+  assumes maxbuff_g0 [simp] : \<open>maxbuff > 0\<close>  
+
+begin
+
+datatype buffer_event = input int | "output" int
+
+term size
+
+fixrec BBuf :: \<open>int \<rightarrow> int list \<rightarrow> buffer_event process\<close> where
+   \<open>BBuf\<cdot>sz\<cdot>buff = (sz < maxbuff) & (input\<^bold>?x \<rightarrow> BBuf\<cdot>(sz+1)\<cdot>(buff @ [x]))  \<box>
+                  (sz > 0) & (output\<^bold>!(hd buff) \<rightarrow> BBuf\<cdot>(sz-1)\<cdot>(tl buff)) \<close>
+
+
+end
+
+
+
+locale RingBuffer =
+fixes maxring :: nat
+assumes maxring_g0 [simp] : \<open>maxring = maxbuff - 1\<close>  (*? ?*)
+
+begin
+
+definition ringindex ::  \<open>int set\<close> where \<open>ringindex = {0\<dots>(maxring-1)}\<close> 
+datatype ringbuf_event = rd int \<times> int | wrt int \<times> int | input int | "output" int
+
+term size
+
+fixrec  Cell     :: \<open>int \<rightarrow> int \<rightarrow> ringbuf_event process\<close> 
+    and RingCell :: \<open>int \<rightarrow> int \<rightarrow> ringbuf_event process\<close> 
+    and Ring     :: \<open>int  \<rightarrow> ringbuf_event process\<close> 
+    and Ctrl     :: \<open>int \<rightarrow> int \<rightarrow> int  \<rightarrow> int  \<rightarrow> ringbuf_event process\<close> 
+    where
+   \<open>Cell\<cdot>n\<cdot>v =  (rd.n\<^bold>!v \<rightarrow> Cell\<cdot>n\<cdot>v)  \<box>
+               (wrt.n\<^bold>?x \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+ |\<open>RingCell\<cdot>n = (wrt.n\<^bold>?x \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+ |\<open>Ring = |\<^bold>|\<^bold>| i \<in> ringindex \<cdot>RingCell\<cdot>i \<close>
+
+ |\<open>Ctrl\<cdot>sz\<cdot>cache\<cdot>top\<cdot>bot = (input?x \<rightarrow> (sz=0 & Ctrl\<cdot>1\<cdot>x\<cdot>top\<cdot>bot)  \<box>
+                                   (sz>0 & wrt.top!x \<rightarrow> Ctrl\<cdot>(sz+1)\<cdot>cache\<cdot>bot\<cdot>(top+1)mod maxring) )
+                        \<box>
+                        (sz\<^bold>?0 & "output"!cache \<rightarrow>
+                              sz>1 & rd.bot\<^bold>?x \<rightarrow> Ctrl\<cdot>(sz-1)\<cdot>x\<cdot>top\<cdot>(bot+1)mod maxring
+                              \<box>
+                              sz=01& rd.bot\<^bold>?x \<rightarrow> Ctrl\<cdot>0\<cdot>cache\<cdot>bot\<cdot>top  )\<close>
+
+
+definition Sync  :: \<open>ringbuf_event set\<close>
+  where     \<open>Sync  \<equiv> {rd,wrt}\<close>
+
+definition RingBuffer :: \<open>ringbuf_event process\<close>
+  where \<open>RingBuffer = (Ctrl\<cdot>0\<cdot>0\<cdot>0\<cdot>0 \<lbrakk>Sync\<rbrakk> Ring) \<Zhide> Sync\<close>
+
+
+end
+end

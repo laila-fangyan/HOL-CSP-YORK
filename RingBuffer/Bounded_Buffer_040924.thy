@@ -1,0 +1,192 @@
+
+theory Bounded_Buffer_040924
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
+          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+begin
+
+\<comment> \<open> This file models Bounded Buffer and Ring Buffer using fixrec in two seperate locale.
+     changes are made by Benoit from Bounded_Buffer_083024_initial:
+
+    used a notation instead of a syntax for the guard,
+     and changed the priority to higher than the deterministic choice
+    added a definition of the unbounded buffer over an arbitrary type (we can not use the command fixrec for that, and the continuity proof is not trivial, we will have to investigate why someday)
+    corrected the Ring Buffer definition. 
+    Some \bold before ! or ? were missing, and the priority of the guard was a problem. 
+    Basically I added a lot of parenthesis (especially around the mod operator) .
+\<close>
+
+default_sort type
+
+definition Guard :: \<open>bool \<Rightarrow> 'e process \<Rightarrow> 'e process\<close> (infixl \<open>\<^bold>&\<close> 81)
+  where \<open>b \<^bold>& P \<equiv> if b then P else STOP\<close>
+
+lemma Guard_cont [simp] : \<open>cont P \<Longrightarrow> cont (\<lambda>x. b \<^bold>& P x)\<close>
+  by (simp add: Guard_def)
+
+term \<open>e \<rightarrow> a\<close>
+subsection\<open>The bounded buffer processes definition\<close>
+
+
+
+\<comment> \<open>The channels rd and wrt are used for communication with the ring cells.\<close>
+\<comment> \<open>The values communicated through rd and wrt are pairs, where the first element iden-
+tifes a cell, and the second element is the number actually communicated.\<close>
+datatype buffer_event = rd "nat \<times> int" | wrt "nat \<times> int" | input int | "output" int
+
+
+locale BoundedBuffer =
+  fixes maxbuff :: nat
+  \<comment> \<open>The buffer is bounded in its length: it may hold no more than maxbuff elements\<close>
+  assumes maxbuff_g0 [simp] : \<open>maxbuff > 0\<close>  
+
+begin
+
+(*
+\<comment> \<open>The process Buffer has two channels: input and output.\<close>
+datatype buffer_event = input int | "output" int
+*)
+
+
+\<comment> \<open>A simple bounded reactive FIFO buffer 'BBuf' that is used to store natural numbers.\<close>
+\<comment> \<open>There are two state variables:  the buffer size sz the contents of the buffer buff. 
+These two are presented as parameters.\<close>
+fixrec BBuf :: \<open>nat \<rightarrow> int list \<rightarrow> buffer_event process\<close> where
+ [simp del]:    \<open>BBuf\<cdot>sz\<cdot>buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf\<cdot>(sz+1)\<cdot>(buff @ [x]))  \<box>
+                  (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf\<cdot>(sz-1)\<cdot>(tl buff)) \<close>
+\<comment> \<open>The input action is enabled if there is space in the buffer for the new input: sz < maxbuff.
+ The new element is appended to the buffer's contents and the size is updated\<close>
+\<comment> \<open>The output action is enabled if there is something in the buffer: sz>0. The first element (head) is
+output; the others are retained in order; the size of the buffer is updated.\<close>
+
+
+datatype 'a buffer_any_event =  input_any 'a | output_any 'a
+
+definition BBuf_any :: \<open>nat \<Rightarrow> 'a list \<Rightarrow> 'a buffer_any_event process\<close>
+  where \<open>BBuf_any \<equiv> \<mu> X. (\<lambda>sz buff. (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> X (sz+1) (buff @ [x]))  \<box>
+                                     (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> X (sz-1) (tl buff))) \<close>
+
+lemma BBuf_any_unfold :
+  \<open>BBuf_any sz buff = (sz < maxbuff) \<^bold>& (input_any\<^bold>?x \<rightarrow> BBuf_any (sz+1) (buff @ [x]))  \<box>
+                      (sz > 0) \<^bold>& (output_any\<^bold>!(hd buff) \<rightarrow> BBuf_any (sz-1) (tl buff))\<close>
+  (is \<open>BBuf_any sz buff = ?f BBuf_any sz buff \<box> ?g BBuf_any sz buff\<close>)
+proof (subst cont_process_rec[OF BBuf_any_def[THEN meta_eq_to_obj_eq]])
+  show \<open>cont (\<lambda>x sz buff. ?f x sz buff \<box> ?g x sz buff)\<close>
+  proof (rule cont2cont_lambda, rule cont2cont_lambda, rule Det_cont)
+    show \<open>\<And>sz buff. cont (\<lambda>x. ?f x sz buff)\<close>
+        (* TODO: understand why is the continuity proof so difficult *)
+      apply (rule Guard_cont)
+      apply (rule read_cont)
+      apply (rule cont2cont_lambda)
+      by (rule cont2cont_fun, simp add: cont_fun)
+  next
+    show \<open>\<And>sz buff. cont (\<lambda>x. ?g x sz buff)\<close>
+      apply (rule Guard_cont)
+      apply (rule write_cont)
+      by (metis cont2cont_fun cont_fun)
+  qed
+qed simp
+  
+
+
+end
+
+
+\<comment> \<open>An implementation uses a ring of cells, each implemented as a  process, and a central controller that keeps track of
+the indexes of the first and last elements (bot, top), offering the input and output services.\<close>
+locale RingBuffer =
+fixes maxring :: nat and maxbuff :: nat
+assumes maxring_g0 [simp] : \<open>maxring = maxbuff - 1\<close> 
+\<comment> \<open>The maximum size of the ring is one less than the size of the buffer, as the head is cached.\<close>
+
+begin
+
+\<comment> \<open>The indexes of the ring go from 0 to maxring-1.\<close>
+definition ringindex ::  \<open>nat set\<close> where \<open>ringindex = {0..<maxring}\<close> 
+
+
+term size
+
+\<comment> \<open>The solution is to cache the head (first element, bottom of stack) of the ring in the controller, and distribute
+only the tail of the buffer around the ring.\<close>
+\<comment> \<open>The state of the controller contains the size of the buffer (sz), the cache,
+and two ring indexes, keeping track of the index of the next available position (top)
+and the index of the first value stored (bot).\<close>
+
+
+fixrec  Cell     :: \<open>nat \<rightarrow> int \<rightarrow> buffer_event process\<close> 
+    and RingCell :: \<open>nat \<rightarrow> buffer_event process\<close> 
+    and Ctrl     :: \<open>nat \<rightarrow> int \<rightarrow> nat  \<rightarrow> nat  \<rightarrow> buffer_event process\<close> 
+
+where
+
+[simp del] : \<open>Cell\<cdot>n\<cdot>v =  (rd\<^bold>!(n,v) \<rightarrow> Cell\<cdot>n\<cdot>v)  \<box>
+               (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>RingCell\<cdot>n = (wrt\<^bold>?(i,x) \<in> {i. i = n} \<times> UNIV \<rightarrow> Cell\<cdot>n\<cdot>x) \<close>
+
+|[simp del] : \<open>Ctrl\<cdot>sz\<cdot>cache\<cdot>to\<cdot>bo = ((input\<^bold>?x \<rightarrow> ( (sz=0) \<^bold>& Ctrl\<cdot>1\<cdot>x\<cdot>to\<cdot>bo)  \<box>
+                                    ((sz>0 \<and> sz< maxbuff) \<^bold>& (wrt\<^bold>!(to,x) \<rightarrow>
+ Ctrl\<cdot>(sz+1)\<cdot>cache\<cdot>((to+1)mod maxring) \<cdot> bo)) )
+                                  
+                        \<box>
+                        (((sz > 0) \<^bold>& (output\<^bold>!cache \<rightarrow>
+                              ((sz>1)  \<^bold>& (rd\<^bold>?(i,x) \<in> {i. i = bo} \<times> UNIV \<rightarrow> Ctrl\<cdot>(sz-1)\<cdot>x\<cdot>to\<cdot>((bo+1)mod maxring)))
+                              \<box>
+                              (sz=1) \<^bold>& Ctrl\<cdot>0\<cdot>cache\<cdot>to\<cdot>bo  ) )))\<close>
+
+
+
+\<comment> \<open>Controller: The input action depends on whether the buffer is empty: sz=0. 
+If it is empty, then this input must be kept in the cache, not in the ring cell; 
+if it is non-empty and there is space in the buffer, then the controller transmits
+the input x to the cell at the top of the ring, the top index advances 
+(the index of the next available position).the cache is ocuppied and unchanged. 
+if it is full, then no input action is possible. 
+When the input is cached, the top and bot indexes do not change.
+\<close>
+\<comment> \<open>Controller: The output always comes from the cache, which must be replaced if the ring is non-empty. 
+The output action ' output!cache' is enabled when the buffer is non-empty: sz>0. 
+In the case that the ring is empty, we have size = 1, the value is stored in cache; 
+after output, buffer size sz is reset to 0; nothing else changes.? ? cache = null? ?
+If the ring is non-empty: sz>1,
+the controller obtains the input x from the cell at the bot of the ring.\<close>
+
+
+
+definition
+\<open>Ring = \<^bold>|\<^bold>|\<^bold>| i \<in># mset [0..<maxring]. RingCell\<cdot>i \<close>
+
+
+\<comment> \<open>TODO: change the name, confusion with \<^const>\<open>Sync\<close>  DONE\<close>
+
+definition Syn  ::  \<open>buffer_event set\<close>
+  where     "Syn  \<equiv> (range rd) \<union> (range wrt)"
+
+
+\<comment> \<open>an alternative way to define Syn\<close>
+definition Syn'  :: \<open>buffer_event set\<close>
+  where     \<open>Syn'  \<equiv> {rd x | x. True} \<union> {wrt x | x . True}\<close>
+
+term Syn
+term Syn'
+
+definition RingBuffer :: \<open>buffer_event process\<close>
+  where \<open>RingBuffer  \<equiv>(Ctrl\<cdot>0\<cdot>0\<cdot>0\<cdot>0 \<lbrakk>Syn\<rbrakk> Ring) \ Syn\<close>
+
+end
+
+
+
+locale refinement_proof = BoundedBuffer + RingBuffer
+begin
+
+lemma impl_refines_spec : "(BBuf\<cdot>0\<cdot>[]) \<sqsubseteq>\<^sub>F\<^sub>D RingBuffer"
+  oops
+
+
+lemma DF_BBuf : "(DF UNIV) \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>0\<cdot>[]"
+proof (unfold  DF_def)
+  oops
+
+end
+end

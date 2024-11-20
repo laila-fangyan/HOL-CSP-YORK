@@ -1,0 +1,141 @@
+
+theory GA_Trans
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
+          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+          Guard
+begin
+
+\<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
+
+default_sort type
+
+
+no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
+no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
+
+no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
+
+
+subsection\<open>The bounded buffer processes definition\<close>
+
+type_synonym Chem = nat
+type_synonym Intensity = nat
+
+	
+	
+datatype NIDS = 
+	NID_i1  | 
+	NID_GasDetected  | 
+	NID_j1  | 
+	NID_Reading  | 
+	NID_Analysis  | 
+	NID_NoGas 	
+	
+datatype Status = 
+	noGas | 
+	gasD	
+	
+datatype Angle = 
+	Left | 
+	Right | 
+	Back | 
+	Front
+
+datatype GasSensor =
+	c : "Chem" |
+	i : "Intensity"
+
+
+
+locale Trans =
+  fixes goreq :: "Intensity \<times>Intensity \<Rightarrow> bool"
+
+  fixes analysis :: "(GasSensor list) \<Rightarrow> Status"
+
+  fixes location :: "(GasSensor list) \<Rightarrow> Angle"
+
+  fixes intensity :: "(GasSensor list) \<Rightarrow> Intensity"
+
+  fixes angle :: "nat \<Rightarrow> Angle"
+
+begin
+
+
+\<comment> \<open>Channel Declaration\<close>
+datatype trans_event =  
+"share" |
+\<comment> \<open>internal_channel\<close>
+"internal__chan" "NIDS" |
+\<comment> \<open>flowchannel\<close>
+"interrupt" |
+"exited" |
+"exit" |
+"terminate" |
+\<comment> \<open>variable_channel\<close>
+"get_sts" "Status" |
+"set_sts" "Status" |
+"get_gs" "(GasSensor list)" |
+"set_gs" "(GasSensor list)" |
+"get_ins" "Intensity" |
+"set_ins" "Intensity" |
+"get_anl" "Angle" |
+"set_anl" "Angle" |
+\<comment> \<open>event_channel\<close>
+"gas_in" "(GasSensor list)" |
+"gas_out" "(GasSensor list)" |
+"resume_in" |
+"resume_out" |
+"turn_in" "Angle" |
+"turn_out" "Angle" |
+"stop_in" |
+"stop_out" |
+"gas__in" "NIDS \<times> (GasSensor list)" |
+"resume__in" "NIDS" |
+"turn__in" "NIDS \<times> Angle" |
+"stop__in" "NIDS" |
+\<comment> \<open>state_channel\<close>
+"enter_i1" |
+"enter_GasDetected" |
+"enter_j1" |
+"enter_Reading" |
+"enter_Analysis" | 
+"enter_NoGas"
+
+
+
+definition t1 :: "trans_event process"
+  where   \<open>t1 \<equiv> (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> SKIP)\<close>
+
+
+definition t0 :: "trans_event process"
+  where   \<open>t0 \<equiv> (gas__in\<^bold>.(NID_Reading )\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow> SKIP)))\<close>
+
+
+
+
+definition t2 :: "trans_event process"
+  where   \<open>t2 \<equiv>  ((internal__chan.(NID_NoGas ) \<rightarrow> SKIP); (( (exit  \<rightarrow> SKIP)); ( ((exited  \<rightarrow> SKIP); (enter_Reading  \<rightarrow> SKIP)))))\<close>
+
+
+
+definition t3 :: "trans_event process"
+  where   \<open>t3 \<equiv> ((sts = noGas) & (((internal__chan.(NID_Analysis ) \<rightarrow> SKIP); (( (exit  \<rightarrow> SKIP)); ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP))); (enter_NoGas  \<rightarrow> SKIP)))))))\<close>
+
+
+definition t4 :: "trans_event process"
+  where   \<open>t4 \<equiv> ((sts = gasD) & (((internal__chan.(NID_Analysis) \<rightarrow> SKIP); (( (exit \<rightarrow> SKIP)); ( ((exited \<rightarrow> SKIP); (enter_GasDetected \<rightarrow> SKIP)))))))\<close>
+
+
+definition t8 :: "trans_event process"
+  where   \<open>t8 \<equiv>(goreq(ins,thr) & (((internal__chan.(NID_GasDetected) \<rightarrow> SKIP); (( (exit \<rightarrow> SKIP)); ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP))); (enter_j1 \<rightarrow> SKIP)))))))\<close>
+
+
+definition t9a :: "trans_event process"
+  where   \<open>t9a \<equiv>((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan.(NID_GasDetected) \<rightarrow> SKIP); (( exit \<rightarrow> SKIP); ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl!location(gs) \<rightarrow> SKIP))));  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> SKIP)))))))\<close>
+
+
+end
+
+
+
+end
