@@ -5,7 +5,7 @@
  * 15 Nov 2024, lemma generilized_refine_guarded_extchoice proved using MultDet.thy
 
  ******************************************************************************\<close>
-theory Bounded_Buffer_211124_ddf_automation_incomplete
+theory Bounded_Buffer_151124_ddf_automation_incomplete
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete""HOL-CSPM.MultiDet"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
           Guard

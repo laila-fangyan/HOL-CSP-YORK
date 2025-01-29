@@ -16,6 +16,20 @@ no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
 no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
 
 
+definition "dot"    :: "['a \<Rightarrow> 'b, 'a, 'b process] \<Rightarrow> 'b process"
+  where      "dot c
+ a P \<equiv> Mprefix {c a} (\<lambda> x. P)"
+
+
+
+syntax   "_dot"  :: "[id, logic, 'a process] => 'a process"
+                                        ("(3(_\<^bold>._) /\<rightarrow> _)" [0,0,78] 78)
+
+translations
+ 
+  "_dot c p P"     \<rightleftharpoons> "CONST dot c p P"
+
+
 subsection\<open>The bounded buffer processes definition\<close>
 
 type_synonym Chem = nat
@@ -58,6 +72,8 @@ locale Trans =
 
   fixes angle :: "nat \<Rightarrow> Angle"
 
+  fixes thr:: "Intensity"
+
 begin
 
 
@@ -90,7 +106,8 @@ datatype trans_event =
 "stop_in" |
 "stop_out" |
 "gas__in" "NIDS \<times> (GasSensor list)" |
-"resume__in" "NIDS" |
+(*"gas__in" "NIDS \<Rightarrow> GasSensor list \<Rightarrow> trans_event"|
+*)"resume__in" "NIDS" |
 "turn__in" "NIDS \<times> Angle" |
 "stop__in" "NIDS" |
 \<comment> \<open>state_channel\<close>
@@ -101,41 +118,93 @@ datatype trans_event =
 "enter_Analysis" | 
 "enter_NoGas"
 
+definition trans :: "trans_event process"
+  where  \<open>trans \<equiv> 
+  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
+  (
+  (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> SKIP)
+
+  \<box>
+   ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> SKIP)\<^bold>; (enter_Reading  \<rightarrow> SKIP)))))
+  \<box>
+  ((sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP)))\<^bold>; (enter_NoGas  \<rightarrow> SKIP)))))))
+  \<box>
+  ((sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> SKIP)\<^bold>; (enter_GasDetected \<rightarrow> SKIP)))))))
+  \<box>
+  (goreq(ins,thr) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP)))\<^bold>; (enter_j1 \<rightarrow> SKIP)))))))
+  \<box>
+  ((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( exit \<rightarrow> SKIP)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> SKIP))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> SKIP)))))))
+  \<box>
+
+  ((interrupt \<rightarrow> (exit \<rightarrow> SKIP)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> SKIP)))
+  \<box>
+  (terminate \<rightarrow> SKIP)
+) \<close>
+ (* \<box>
+  (gas__in\<^bold>.(NID_Reading)\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow> SKIP)))  *)
 
 
-definition t1 :: "trans_event process"
-  where   \<open>t1 \<equiv> (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> SKIP)\<close>
 
 
-definition t0 :: "trans_event process"
-  where   \<open>t0 \<equiv> (gas__in\<^bold>.(NID_Reading )\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow> SKIP)))\<close>
+lemma deadlock_free_trans : \<open>deadlock_free (trans)\<close>
+proof (unfold deadlock_free_def DF_def)
+  show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>Dtrans\<close>
 
+  proof (induct arbitrary: L rule: fix_ind)
+    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L)\<close> by (simp add: monofunI)
+  next
+    show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L by simp
+  next
+    fix X L assume hyp : \<open>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L
+    show \<open>(\<Lambda> X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<cdot>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
+    proof (subst beta_cfun)
+      show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
+    next
+      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
+        apply (subst BBuf.unfold)
+        apply simp
+      proof -
+        consider \<open>L = []\<close> \<open>length L < maxbuff\<close> | \<open>L \<noteq> []\<close> \<open>length L < maxbuff\<close>
+        | \<open>L \<noteq> []\<close> \<open>\<not> length L < maxbuff\<close> by auto \<comment> \<open>we use @{thm maxbuff_g0} here\<close>
+        thus \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D
+             (length L < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf\<cdot>(Suc (length L))\<cdot>(L @ [x])) \<box>
+             (L \<noteq> []) \<^bold>& (output\<^bold>!hd L \<rightarrow> BBuf\<cdot>(length L - Suc 0)\<cdot>(tl L))\<close>
+          (is \<open>\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>)
+        proof cases
+          show \<open>L = [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_STOP)
+            apply (simp add: read_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
+              apply simp_all
+            by (rule hyp[of \<open>[_]\<close>, simplified])
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply simp
+            apply (subst Ndet_id[symmetric])
+            apply (rule Ndet_trans_Det_FD)
 
+             apply (unfold read_def)
+             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+             apply (metis hyp length_append_singleton)
 
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+            by (metis One_nat_def hyp length_tl)
+        next
+          show \<open>L \<noteq> [] \<Longrightarrow> \<not> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
+            apply (simp add: Det_commute[of STOP, simplified Det_STOP])
+            apply (unfold write_def)
+            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
+            by (metis One_nat_def hyp length_tl)
+        qed
+      qed
+    qed
+  qed
+qed
 
-definition t2 :: "trans_event process"
-  where   \<open>t2 \<equiv>  ((internal__chan.(NID_NoGas ) \<rightarrow> SKIP); (( (exit  \<rightarrow> SKIP)); ( ((exited  \<rightarrow> SKIP); (enter_Reading  \<rightarrow> SKIP)))))\<close>
-
-
-
-definition t3 :: "trans_event process"
-  where   \<open>t3 \<equiv> ((sts = noGas) & (((internal__chan.(NID_Analysis ) \<rightarrow> SKIP); (( (exit  \<rightarrow> SKIP)); ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP))); (enter_NoGas  \<rightarrow> SKIP)))))))\<close>
-
-
-definition t4 :: "trans_event process"
-  where   \<open>t4 \<equiv> ((sts = gasD) & (((internal__chan.(NID_Analysis) \<rightarrow> SKIP); (( (exit \<rightarrow> SKIP)); ( ((exited \<rightarrow> SKIP); (enter_GasDetected \<rightarrow> SKIP)))))))\<close>
-
-
-definition t8 :: "trans_event process"
-  where   \<open>t8 \<equiv>(goreq(ins,thr) & (((internal__chan.(NID_GasDetected) \<rightarrow> SKIP); (( (exit \<rightarrow> SKIP)); ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP))); (enter_j1 \<rightarrow> SKIP)))))))\<close>
-
-
-definition t9a :: "trans_event process"
-  where   \<open>t9a \<equiv>((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan.(NID_GasDetected) \<rightarrow> SKIP); (( exit \<rightarrow> SKIP); ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl!location(gs) \<rightarrow> SKIP))));  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> SKIP)))))))\<close>
 
 
 end
-
 
 
 end

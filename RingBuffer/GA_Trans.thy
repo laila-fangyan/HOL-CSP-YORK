@@ -1,4 +1,13 @@
-
+\<comment>\<open> **********************************************************************************
+ * This file models the transitions of GasAnalysis in HOL-CSP based 
+ * the RoboChart Circus semantics.
+ * 
+ * The proof of deadlock_free_trans lemma is not conducted, the proof body
+ * is for the Bounded Buffer. The proof and proof automation is conducted
+ * for the ZM version.
+ * 
+ * Date: 12-10-2024
+ *************************************************************************************\<close>
 theory GA_Trans
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"

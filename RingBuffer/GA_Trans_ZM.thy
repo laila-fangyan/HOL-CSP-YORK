@@ -183,6 +183,7 @@ find_theorems "(?a \<rightarrow>?P) \<box>( ?Q)"
 lemma deadlock_free_Trans : \<open>deadlock_free (Trans\<cdot>n)\<close>
 proof (unfold deadlock_free_def DF_def)
   show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>D Trans\<cdot>n\<close>
+  
   proof (induct arbitrary: n rule: fix_ind)
     show \<open> adm (\<lambda>a. \<forall>n. a \<sqsubseteq>\<^sub>F\<^sub>D Trans\<cdot>n)\<close> sorry
   next

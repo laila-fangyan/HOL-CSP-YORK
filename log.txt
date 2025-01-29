@@ -1,8 +1,0 @@
-HOL-CSP github:
-https://gitlab.lisn.upsaclay.fr/burkhart.wolff/hol-csp2.0
-
-HOL-CSP York github:
-https://github.com/laila-fangyan/HOL-CSP-YORK
-
-20250121 meeting with Benoit
-

@@ -1,12 +1,16 @@
+(*<*)
 \<comment>\<open> ********************************************************************
- * This version is based on 'Bounded_Buffer_120924_ddf_proved_by_Benoit.thy'.
- * effort is given to imporve automation of the DF.
- * 25 Oct 2024, lemma refine_guarded_extchoice proved
- * 15 Nov 2024, lemma generilized_refine_guarded_extchoice proved using MultDet.thy
-
+ * This file is to prove the ddf and refinement of Bounded Buffer.
+ * Deadlock freedom is proved, refinment is not.
+ * The models of Bounded Buffer and RingBuffer are built using fixrec in the same locale.
+ * 
+ * The proof is done by Benoit using simulation strategy.
+ * 
+ * Date: 12-09-2024
  ******************************************************************************\<close>
-theory Bounded_Buffer_211124_ddf_automation_incomplete
-  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete""HOL-CSPM.MultiDet"
+(*>*)
+theory Bounded_Buffer_120924_ddf_proved_by_Benoit_modelled_with_fixrec
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
           Guard
 begin
@@ -40,6 +44,8 @@ These two are presented as parameters.\<close>
 fixrec BBuf :: \<open>nat \<rightarrow> int list \<rightarrow> ringbuf_event process\<close> where
   [simp del]: \<open>BBuf\<cdot>sz\<cdot>buff = (sz < maxbuff) \<^bold>& (input\<^bold>?x \<rightarrow> BBuf\<cdot>(sz+1)\<cdot>(buff @ [x]))  \<box>
                   (sz > 0) \<^bold>& (output\<^bold>!(hd buff) \<rightarrow> BBuf\<cdot>(sz-1)\<cdot>(tl buff)) \<close>
+
+
 \<comment> \<open>The input action is enabled if there is space in the buffer for the new input: sz < maxbuff.
  The new element is appended to the buffer's contents and the size is updated\<close>
 \<comment> \<open>The output action is enabled if there is something in the buffer: sz>0. The first element (head) is
@@ -167,7 +173,6 @@ definition
 \<open>Ring = \<^bold>|\<^bold>|\<^bold>| i \<in># mset [0..<maxring]. RingCell\<cdot>i \<close>
 
 
-\<comment> \<open>TODO: change the name, confusion with \<^const>\<open>Sync\<close>\<close>
 
 definition Syn  :: \<open>ringbuf_event set\<close>
   where     \<open>Syn  \<equiv> {rd x | x. True} \<union> {wrt x | x . True}\<close>
@@ -189,98 +194,13 @@ lemma Mndetprefix_trans_subset_FD :
 lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
   by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
 
-find_theorems "(\<box>)" "(\<sqsubseteq>\<^sub>F\<^sub>D)"
-
-
-lemma DF_guard_extchoice:
-  assumes "b \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D R" "b \<or> c"
-  shows "DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
-  by (metis Det_STOP Det_commute Guard_False Guard_True assms(1) assms(2) assms(3) deadlock_free_Det deadlock_free_def)
-
-lemma refine_guarded_extchoice:
-  assumes "b \<or> c" "b \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D R"
-  shows "\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
-  by (metis Det_STOP Det_commute FD_iff_eq_Ndet Guard_def Ndet_trans_Det_FD assms(1) assms(2) assms(3) idem_FD)
-
-lemma extchoice_preguard: "(b \<or> c) \<^bold>& (b \<^bold>& Q) \<box> (c \<^bold>& R) = (b \<^bold>& Q) \<box> (c \<^bold>& R)"
-  by (simp add: Guard_def)
-
-lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)) = (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)"
-  apply (induct arbitrary: b P rule: finite_induct)
-  apply (auto simp add: Guard_def Det_is_STOP_iff MultiDet_is_STOP_iff)
-  apply (metis Det_id)
-  done
-
-lemma generilized_refine_guarded_extchoice:
-  assumes "finite I" "\<exists>i\<in>I. b(i)" "\<And> i. \<lbrakk> i \<in> I; b(i) \<rbrakk> \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D P(i)" 
-  shows "\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (\<^bold>\<box> i\<in>I. b(i) \<^bold>& P(i))"
-using assms proof (induct arbitrary:X rule:finite_induct)
-  case empty
-  then show ?case
-    by simp
-next
-  case (insert x F)
-  then show ?case
-  proof -
-    from insert have 1:"(\<^bold>\<box> i\<in>{x} \<union> F. b i \<^bold>& P i) = (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
-      by (smt (verit, ccfv_threshold) Guard_def MultiDet_insert' MultiDet_is_STOP_iff Sup_bool_def True_in_image_Bex insert_is_Un)
-    have 2:"\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
-      apply (rule refine_guarded_extchoice, auto simp add: Sup_bool_def insert)
-      using Sup_bool_def insert.prems(1) apply blast
-      done
-    thus ?thesis
-      using "1" by fastforce
-  qed
-qed
-
-
-(* Tasks: 
-   (1) Generalise the guarded external choice theorem, so we can handle multiple branches -- probably requires an n-ary/replicated external choice;
-   (2) Allow a deadlock freedom proof to make multiple steps before reaching the hypothesis process. 
-*)
-
-(* How can we prove a lemma like the below? Can we generalise this to a finite number of 
-  internal choices? *)
-
-thm fix_ind_k
-
-lemma "(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow> X) = (\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X)"
-  oops
-
-lemma deadlock_free_BBuf : \<open>deadlock_free (BBuf\<cdot>(length L)\<cdot>L)\<close>
-proof (unfold deadlock_free_def DF_def)
-  show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow> X) \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
-  proof (induct arbitrary: L rule: fix_ind)
-    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L)\<close> by (simp add: monofunI)
-  next
-    show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L by simp
-  next
-    fix X L assume hyp : \<open>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L
-    show \<open>(\<Lambda> X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<cdot>X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
-    proof (subst beta_cfun)
-      show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
-    next
-      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
-        apply (subst BBuf.unfold)
-        apply simp
-        apply (rule refine_guarded_extchoice)
-          apply fastforce
-            apply (simp_all add: read_def write_def)
-         apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
-         apply (metis hyp length_append_singleton)
-         apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
-        apply (metis One_nat_def hyp length_tl)
-        done
-    qed
-  qed
-qed
 
 
 lemma deadlock_free_BBuf : \<open>deadlock_free (BBuf\<cdot>(length L)\<cdot>L)\<close>
 proof (unfold deadlock_free_def DF_def)
   show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
   proof (induct arbitrary: L rule: fix_ind)
-    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L)\<close> by (simp add: monofunI)
+    show \<open>adm (\<lambda>a. \<forall>L. a \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L)\<close>  by (simp add: monofunI)
   next
     show \<open>\<bottom> \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close> for L by simp
   next
@@ -292,7 +212,6 @@ proof (unfold deadlock_free_def DF_def)
       show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D BBuf\<cdot>(length L)\<cdot>L\<close>
         apply (subst BBuf.unfold)
         apply simp
-        
       proof -
         consider \<open>L = []\<close> \<open>length L < maxbuff\<close> | \<open>L \<noteq> []\<close> \<open>length L < maxbuff\<close>
         | \<open>L \<noteq> []\<close> \<open>\<not> length L < maxbuff\<close> by auto \<comment> \<open>we use @{thm maxbuff_g0} here\<close>
@@ -330,7 +249,7 @@ proof (unfold deadlock_free_def DF_def)
       qed
     qed
   qed
-
+qed
 
 corollary \<open>deadlock_free (BBuf\<cdot>0\<cdot>[])\<close>
   by (metis deadlock_free_BBuf list.size(3))
