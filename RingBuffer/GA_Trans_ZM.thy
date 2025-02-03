@@ -13,7 +13,7 @@
 theory GA_Trans_ZM
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
-          Guard
+          Guard "HOL-CSP_OpSem.DeadlockFreenessStuff"
 begin
 
 \<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
@@ -150,6 +150,33 @@ find_theorems " ?P \<box> ?Q"
 lemma Push_in_prefix : \<open>a \<rightarrow> (P \<box> Q) = (a \<rightarrow> P) \<box> (a \<rightarrow> Q)\<close>
   sorry
 
+
+fixrec Trans :: "NIDS \<rightarrow> trans_event process"
+  where  \<open>Trans\<cdot>n =
+  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
+  (
+  (n = NID_i1) \<^bold>& (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)
+
+  \<box>
+  (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> SKIP)\<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)))))
+  \<box>
+  ((n = NID_Analysis \<and> sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP)))\<^bold>; (enter_NoGas  \<rightarrow>  Trans\<cdot>NID_NoGas)))))))
+  \<box>
+  ((n = NID_Analysis \<and> sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> SKIP)\<^bold>; (enter_GasDetected \<rightarrow> Trans\<cdot>NID_GasDetected   )))))))
+  \<box>
+ ((n = NID_GasDetected \<and> goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP)))\<^bold>; (enter_j1 \<rightarrow> Trans\<cdot>NID_j1 )))))))
+  \<box>
+  ((n = NID_GasDetected \<and> \<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( exit \<rightarrow> SKIP)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> SKIP))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> Trans\<cdot>NID_Reading )))))))
+ \<box>
+   ((n = NID_Reading) \<^bold>&(gas__in\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis))))
+ \<box>
+
+  ((interrupt \<rightarrow> (exit \<rightarrow> SKIP)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> SKIP)))
+  \<box>
+  (terminate \<rightarrow> SKIP)
+) \<close>
+
+(*
 fixrec Trans :: "NIDS \<rightarrow> trans_event process"
   where  \<open>Trans\<cdot>n =
   get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
@@ -176,8 +203,18 @@ fixrec Trans :: "NIDS \<rightarrow> trans_event process"
 ) \<close>
  (* \<box>
    (n = NID_Reading) \<^bold>&(gas__in\<^bold>.(NID_Reading)\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis)))  *)
-
+*)
 find_theorems "(?a \<rightarrow>?P) \<box>( ?Q)"
+
+
+
+
+
+
+lemma 
+  assumes P_def: \<open>P = (Trans\<cdot>n)\<close>
+  shows \<open>deadlock_free (Trans\<cdot>n)\<close>
+  by (deadlock_free P_def: P_def)
 
 
 lemma deadlock_free_Trans : \<open>deadlock_free (Trans\<cdot>n)\<close>
@@ -194,48 +231,50 @@ proof (unfold deadlock_free_def DF_def)
     proof (subst beta_cfun)
       show \<open>cont (\<lambda>X. \<sqinter>x\<in>UNIV \<rightarrow> X)\<close> by simp
     next
-      show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Trans\<cdot>n\<close>
+        show \<open>\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Trans\<cdot>n\<close>
         apply (subst Trans.unfold)
       
 
       proof -
         consider \<open>n = NID_i1\<close> | \<open>n = NID_NoGas\<close> | \<open>n = NID_Analysis\<close> \<open>sts = noGas\<close> | 
-                 \<open>n = NID_Analysis\<close> \<open> sts = gasD\<close> | \<open>n = NID_GasDetected \<close> \<open> goreq(ins,thr)\<close>
+                 \<open>n = NID_Analysis\<close> \<open> sts = GasD \<close> | \<open>n = NID_GasDetected \<close> \<open> goreq(ins,thr)\<close>
                  \<open>n = NID_GasDetected\<close> \<open> \<not>goreq(ins,thr) \<close>   | \<open>n = NID_Reading \<close>  
       
         proof cases
+          assumes P_def:  \<open>P = Trans\<cdot>NID_i1\<close>
+          show \<open>n = NID_i1 \<Longrightarrow> deadlock_free Trans\<cdot>n \<close>
+             apply (deadlock_free P_def: Trans\<cdot>n)
+
+
           show \<open>n = NID_i1 \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+ 
             apply (simp add: Det_STOP)
             apply (simp add: read_def)
             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD])
               apply simp_all
             by (rule hyp[of \<open>[_]\<close>, simplified])
         next
-          show \<open>L \<noteq> [] \<Longrightarrow> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
-            apply simp
-            apply (subst Ndet_id[symmetric])
-            apply (rule Ndet_trans_Det_FD)
+           show \<open>n = NID_NoGas \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
 
-             apply (unfold read_def)
-             apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
-             apply (metis hyp length_append_singleton)
-
-            apply (unfold write_def)
-            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
-            by (metis One_nat_def hyp length_tl)
         next
-          show \<open>L \<noteq> [] \<Longrightarrow> \<not> length L < maxbuff \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D ?P\<close>
-            apply (simp add: Det_commute[of STOP, simplified Det_STOP])
-            apply (unfold write_def)
-            apply (rule trans_FD[OF Mndetprefix_trans_subset_FD Mprefix_refines_Mndetprefix_FD]; simp)
-            by (metis One_nat_def hyp length_tl)
-        qed
+          show \<open>n = NID_Analysis \<Longrightarrow> sts = noGas \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+
+        next
+          show \<open>n = NID_Analysis \<Longrightarrow> sts = GasD \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+        next
+          show \<open>n = NID_GasDetected \<Longrightarrow>  goreq(ins,thr) \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+        next
+          show \<open>n = NID_GasDetected \<Longrightarrow>  \<not>goreq(ins,thr) = NID_NoGas \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+        next
+          show \<open>n = NID_Reading  \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D  Trans\<cdot>n \<close>
+       
+         qed
       qed
     qed
   qed
 qed
 
-corollary \<open>deadlock_free (BBuf\<cdot>0\<cdot>[])\<close>
+corollary \<open>deadlock_free (Trans\<cdot>NID_i1)\<close>
   by (metis deadlock_free_BBuf list.size(3))
 
 
