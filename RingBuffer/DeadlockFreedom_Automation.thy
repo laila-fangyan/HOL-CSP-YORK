@@ -1,14 +1,14 @@
 \<comment>\<open> ********************************************************************
  * This file is to automate the verification of deadlock freedom.
- * This version combines lemmas in and lemmas in Bounded_Buffer_211124_ddf_automation_incomplete by Simon
- * 15 Nov 2024, lemma generilized_refine_guarded_extchoice proved using MultDet.thy
+ * This version combines the lemmas in DeadlockFreenessStuff by Benoit and lemmas in Bounded_Buffer_211124_ddf_automation_incomplete by Simon.
+ * 03 Feb 2025
 
 *******************************************************************\<close>
 theory DeadlockFreedom_Automation
-  imports "HOL-CSP_OpSem.AfterDeadlockResults"
+  imports "HOL-CSP_OpSem.AfterDeadlockResults" Guard
 begin
 
-
+(**)
 
 lemma prefix_proving_Mndetprefix_ref :
   \<open>A \<subseteq> B \<Longrightarrow> A \<noteq> {} \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> P a \<sqsubseteq>\<^sub>F\<^sub>D Q a) \<Longrightarrow> (\<sqinter>a \<in> B \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D (\<sqinter>a \<in> A \<rightarrow> Q a)\<close>
@@ -17,6 +17,8 @@ lemma prefix_proving_Mndetprefix_ref :
     apply (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
    apply (metis CSP.mono_Mprefix_FD Mprefix_refines_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
   by (meson CSP_Laws.mono_write0_FD Mndetprefix_refine_FD failure_divergence_refine_def order_trans)
+
+thm Mndetprefix_def
 
 lemma read_proving_Mndetprefix_ref :
   \<open>inj_on c A \<Longrightarrow> c ` A \<subseteq> B \<Longrightarrow> A \<noteq> {} \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> P (c a) \<sqsubseteq>\<^sub>F\<^sub>D Q a) \<Longrightarrow> (\<sqinter>a \<in> B \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D (c\<^bold>?a \<in> A \<rightarrow> Q a)\<close>
@@ -30,6 +32,7 @@ lemmas prefix_proving_Mndetprefix_UNIV_ref = prefix_proving_Mndetprefix_ref[wher
    and write_proving_Mndetprefix_UNIV_ref = write_proving_Mndetprefix_ref[where B = UNIV, simplified]
 
 
+(*if P's nondetprefix process is refined by Q AND R, then it is also refined by Q \<sqinter> R, Q \<box> R, Q  R*)
 lemma binops_proving_Mndetprefix_ref :
   \<open>(\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> (\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D R \<Longrightarrow> (\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D Q \<sqinter> R\<close>
   \<open>(\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> (\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D R \<Longrightarrow> (\<sqinter>a \<in> A \<rightarrow> P a) \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R\<close>
@@ -39,10 +42,21 @@ lemma binops_proving_Mndetprefix_ref :
   by (metis Sliding_id mono_Sliding_FD)
 
 
-
+(*The failure set of a process P that iterates i times over Mndetprefix 
+A = {}, then no events can be chosen
+ - iterating 0 time, Failures =  \<F> P
+ - iterating >0 times, Failures = {(s, X). s = []}
+A \<noteq> {},
+  - iterating n<i times, Failures = (s, X) and 
+    s consists only of events from A and
+    at least one event is executable
+  - after completing i times, Failures = (s @ t, X) and
+    s has exactly i steps, and
+    Failures depends on \<F> P
+*)
 lemma F_iterate_Mndetprefix :
   \<open>\<F> (iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>A \<rightarrow> X)\<cdot>P) =
-   (if A = {} then if i = 0 then \<F> P else {(s, X). s = []} else 
+   (if A = {} then if i = 0 then \<F> P else {(s, X). s = []} else
    {(s, X). set s \<subseteq> ev ` A \<and> length s < i \<and> (\<exists>a \<in> A. ev a \<notin> X)} \<union>
    {(s @ t, X)| s t X. set s \<subseteq> ev ` A \<and> length s = i \<and> (t, X) \<in> \<F> P})\<close>
   (is \<open>?lhs P i = (if A = {} then if i = 0 then \<F> P else {(s, X). s = []} else
@@ -168,6 +182,7 @@ lemma tickFree_iff_set_range_ev : \<open>tickFree s \<longleftrightarrow> set s 
   by (metis event.distinct(1) event.exhaust imageE
             rangeI subset_code(1) tickFree_def)
 
+(*when A = UNIV, the failure set of a process P that iterates i times over Mndetprefix on A*)
 corollary F_iterate_Mndetprefix_UNIV :
   \<open>\<F> (iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P) =
    {(s, X). tickFree s \<and> length s < i \<and> (\<exists>a. ev a \<notin> X)} \<union>
@@ -192,6 +207,7 @@ text \<open> York: I've change the notation for the GlobalNdet_iteration operato
 
 definition GlobalNdet_iterations :: \<open>'a process \<Rightarrow> 'a process\<close> (\<open>(_\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> [1000] 999)
   where \<open>GlobalNdet_iterations P \<equiv> \<sqinter>i \<in> {0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P\<close>
+(*this extends iterate i indefinitely, allowing P to be prefixed by an arbitrary but finite number (>0) of Mndetprefix, with the number of iterations being Ndet*)
 
 
 text \<open>York:  This new operator, which uses the * syntax, says that we can perform 0 events and then behave as P. These two operators  ought to be linked together with some lemmas. 24Jan25\<close>
@@ -271,11 +287,14 @@ qed
 text \<open> York: This would allow us to prove the following lemma:24Jan25 \<close>
 
 text\<open>Benoit 30Jan, changed from \<open>\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c*  \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close> to  \<longleftrightarrow>\<close>
+
 lemma one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD :
   \<open>\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Q \<longleftrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
   by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations')
 
-text \<open>York: This law would allow us to break down the proof into an initial event step, followed by an arbitrary number  of steps. Then we could try and prove laws like the one below: 24Jan25
+text \<open>York: This law would allow us to break down the proof into an initial event step, followed by an arbitrary number  of steps. Then we could try and prove laws like the one below.
+This means that if Q can do some number of events and then behave as P, then Q prefixed by a   can also do some number of steps and then behave as P. It seems to be intuitively true, but we  can't prove it. It would however avoid needing to pick the number of steps to make before
+  recursing, which would facilitate fully automated proof.24Jan25
 proved by Benoit 30Jan\<close>
 
 lemma eat_lemma: \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
@@ -291,8 +310,6 @@ next
 qed
 
 
-text \<open> York: This means that if Q can do some number of events and then behave as P, then Q prefixed by a   can also do some number of steps and then behave as P. It seems to be intuitively true, but we  can't prove it. It would however avoid needing to pick the number of steps to make before
-  recursing, which would facilitate fully automated proof. 24Jan25\<close>
 
 
 lemma iterate_F_imp_GlobalNdet_iterations_F :
@@ -324,8 +341,7 @@ lemma iterate_DT_imp_GlobalNdet_iterations_DT :
 
 
 
-lemma GlobalNdet_iterations_F_imp_deadlock_free :
-  \<open>deadlock_free P\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>
+lemma GlobalNdet_iterations_F_imp_deadlock_free : \<open>deadlock_free P\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>
 proof -
   have \<open>\<F> P \<subseteq> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> by (meson failure_refine_def \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>)
   also have \<open>\<dots> = (\<Union>i\<in>{0<..}. {(s, X). tickFree s \<and> length s < i \<and> (\<exists>a. ev a \<notin> X)} \<union>
@@ -408,8 +424,7 @@ lemma GlobalNdet_iterations'_GlobalNdet_iterations' : \<open>(P\<^sup>p\<^sup>r\
   using tickFree_Nil by blast
 
 text\<open>Benoit 30Jan, the original is lemma \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>\<close>
-lemma GlobalNdet_iterations_GlobalNdet_iterations :
-  \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
+lemma GlobalNdet_iterations_GlobalNdet_iterations : \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
   by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations'
                 GlobalNdet_iterations'_Mndetprefix
                 GlobalNdet_iterations'_GlobalNdet_iterations')
@@ -450,21 +465,12 @@ text\<open>York 31Jan25:\<close>
 lemma no_step_refine: "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
   by (simp add: GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations)
 
-lemma 
-  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close>
-  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (subst P_def) back
-  apply (simp add: prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine)
-  done
-
-thm binops_proving_Mndetprefix_ref(2)
-
+(*
+thm binops_proving_Mndetprefi*
 lemma 
   assumes "\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
-  by (smt (verit) assms(1) assms(2) binops_proving_Mndetprefix_ref(2))
+  by (smt (verit) assms(1) assms(2) binops_proving_Mndetprefix_ref(2))*)
 
 lemma df_step_intro:
   assumes P_def: "P = Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q"
@@ -474,34 +480,173 @@ lemma df_step_intro:
   apply (simp add: assms(2))
   done
 
-lemma ndet_prefix_ext_choice:
+lemma ndet_prefix_ext_choice:(*this is added for P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)) pattern: prefix of external choice*)
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
   by (metis CSP.mono_Det_FD Det_id assms(1) assms(2))
 
+
+lemma guard_choice:(*this is added for P =  (a & \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P) pattern: prefix of external choice*)
+  assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a \<^bold>&  Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D b \<^bold>&  R"
+  shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a  \<^bold>& Q \<box> b  \<^bold>&  R"
+  by (metis CSP.mono_Det_FD Det_id assms(1) assms(2))
+
+
+text\<open>The mothod\<close>
 method deadlock_free uses P_def =
   (rule df_step_intro[OF P_def],
    simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym],
    simp add: prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
 
+
+text\<open>examples\<close>
+lemma
+  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
+  shows \<open>deadlock_free P\<close>
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
+  apply (simp add: eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+  done
+
 lemma 
-  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
+  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
   shows \<open>deadlock_free P\<close>
   by (deadlock_free P_def: P_def)
 
+
+
+lemma 
+  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
+  shows \<open>deadlock_free P\<close>
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
+  apply (simp add: binops_proving_Mndetprefix_ref(2) eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+  done
+
+lemma 
+  assumes P_def': \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
+  shows \<open>deadlock_free P\<close>
+  by (deadlock_free P_def: P_def')
+
+
+
+
+lemma 
+  assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
+  shows \<open>deadlock_free P\<close>  
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
+
+  apply (simp add: eat_lemma ndet_prefix_ext_choice  no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+  done
 
 lemma 
   assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
   shows \<open>deadlock_free P\<close>
   by (deadlock_free P_def: P_def)
 
-lemma "deadlock_free ((x::int < 0) \<^bold>& a \<rightarrow> P \<box> (x::int \<ge> 0) \<^bold>& b \<rightarrow> P)"
+
+
+
+
+text\<open>lemmas from 'Bounded_Buffer_211124_ddf_automation_incomplete' by Simon\<close>
+
+lemma Mndetprefix_trans_subset_FD : 
+  \<open>A \<noteq> {} \<Longrightarrow> A \<subseteq> B \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> Q a \<sqsubseteq>\<^sub>F\<^sub>D P a) \<Longrightarrow>
+   Mndetprefix B Q \<sqsubseteq>\<^sub>F\<^sub>D Mndetprefix A P\<close>
+  by (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
+
+lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
+  by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
+
+find_theorems "(\<box>)" "(\<sqsubseteq>\<^sub>F\<^sub>D)"
+
+
+lemma DF_guard_extchoice:
+  assumes "b \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D R" "b \<or> c"
+  shows "DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
+  by (metis Det_STOP Det_commute Guard_False Guard_True assms(1) assms(2) assms(3) deadlock_free_Det deadlock_free_def)
+
+lemma refine_guarded_extchoice:
+  assumes "b \<or> c" "b \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D R"
+  shows "\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
+  by (metis Det_STOP Det_commute FD_iff_eq_Ndet Guard_def Ndet_trans_Det_FD assms(1) assms(2) assms(3) idem_FD)
+
+lemma extchoice_preguard: "(b \<or> c) \<^bold>& (b \<^bold>& Q) \<box> (c \<^bold>& R) = (b \<^bold>& Q) \<box> (c \<^bold>& R)"
+  by (simp add: Guard_def)
+
+lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)) = (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)"
+  apply (induct arbitrary: b P rule: finite_induct)
+  apply (auto simp add: Guard_def Det_is_STOP_iff MultiDet_is_STOP_iff)
+  apply (metis Det_id)
+  done
+
+lemma generilized_refine_guarded_extchoice:
+  assumes "finite I" "\<exists>i\<in>I. b(i)" "\<And> i. \<lbrakk> i \<in> I; b(i) \<rbrakk> \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D P(i)" 
+  shows "\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (\<^bold>\<box> i\<in>I. b(i) \<^bold>& P(i))"
+using assms proof (induct arbitrary:X rule:finite_induct)
+  case empty
+  then show ?case
+    by simp
+next
+  case (insert x F)
+  then show ?case
+  proof -
+    from insert have 1:"(\<^bold>\<box> i\<in>{x} \<union> F. b i \<^bold>& P i) = (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
+      by (smt (verit, ccfv_threshold) Guard_def MultiDet_insert' MultiDet_is_STOP_iff Sup_bool_def True_in_image_Bex insert_is_Un)
+    have 2:"\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
+      apply (rule refine_guarded_extchoice, auto simp add: Sup_bool_def insert)
+      using Sup_bool_def insert.prems(1) apply blast
+      done
+    thus ?thesis
+      using "1" by fastforce
+  qed
+qed
+
+
+text\<open>Examples\<close>
+lemma (*is this deadlock free?*)
+  assumes P_def: \<open>P = ((x < 0) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
+  shows \<open>deadlock_free P\<close>
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
+
   oops
 
-term "\<^bold>\<box> i\<in>{0,1,2}. if i = 0 then b \<^bold>& P else if i = 1 then c \<^bold>& Q else d \<^bold>& R"
-  
+lemma 
+  assumes P_def: \<open>P = e\<rightarrow>(((x < 0) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P)))\<close>
+  shows \<open>deadlock_free P\<close>
 
-term "P \<box> Q"
+  oops
+
+
+
+lemma 
+  assumes P_def: \<open>P =( b \<^bold>& P \<box> c \<^bold>& Q)\<close>
+  shows \<open>deadlock_free P\<close> 
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
+  oops
+
+
+
+
+lemma 
+  assumes P_def: \<open>P = \<^bold>\<box> i\<in>{0,1,2}. if i = 0 then b \<^bold>& P else if i = 1 then c \<^bold>& Q else d \<^bold>& R\<close>
+  shows \<open>deadlock_free P\<close>
+  oops
+
+
+
+lemma 
+  assumes P_def: \<open>P = ((x < 0) \<^bold>& a \<rightarrow> P) \<box>(( x \<ge> 0) \<^bold>& b \<rightarrow> P)\<close>
+  shows \<open>deadlock_free P\<close>
+  by (deadlock_free P_def: P_def)
 
 term "b \<^bold>& P \<box> c \<^bold>& Q"
 
@@ -509,11 +654,10 @@ term "\<^bold>\<box> i\<in>{0,1}. if i = 0 then b \<^bold>& P else c \<^bold>& Q
 
 lemma "\<^bold>\<box> i\<in>{0,1}. if i = 0 then P else Q = P \<box> Q"
   apply simp
-  done
+  oops
 
 
 term "\<^bold>\<box> i\<in>I. b(i) \<^bold>& P(i)"
-
 
 
 end

@@ -13,7 +13,7 @@
 theory GA_Trans_ZM
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
-          Guard "HOL-CSP_OpSem.DeadlockFreenessStuff"
+          Guard (*"HOL-CSP_OpSem.DeadlockFreenessStuff_v3"*) DeadlockFreedom_Automation
 begin
 
 \<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
@@ -176,34 +176,6 @@ fixrec Trans :: "NIDS \<rightarrow> trans_event process"
   (terminate \<rightarrow> SKIP)
 ) \<close>
 
-(*
-fixrec Trans :: "NIDS \<rightarrow> trans_event process"
-  where  \<open>Trans\<cdot>n =
-  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
-  (
-  (n = NID_i1) \<^bold>& (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)
-
-  \<box>
-  (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> SKIP)\<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)))))
-  \<box>
-  ((n = NID_Analysis \<and> sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP)))\<^bold>; (enter_NoGas  \<rightarrow>  Trans\<cdot>NID_NoGas)))))))
-  \<box>
-  ((n = NID_Analysis \<and> sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> SKIP)\<^bold>; (enter_GasDetected \<rightarrow> Trans\<cdot>NID_GasDetected   )))))))
-  \<box>
- ((n = NID_GasDetected \<and> goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP)))\<^bold>; (enter_j1 \<rightarrow> Trans\<cdot>NID_j1 )))))))
-  \<box>
-  ((n = NID_GasDetected \<and> \<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( exit \<rightarrow> SKIP)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> SKIP))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> Trans\<cdot>NID_Reading )))))))
- \<box>
-   ((n = NID_Reading) \<^bold>&(gas__in\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis))))
- \<box>
-
-  ((interrupt \<rightarrow> (exit \<rightarrow> SKIP)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> SKIP)))
-  \<box>
-  (terminate \<rightarrow> SKIP)
-) \<close>
- (* \<box>
-   (n = NID_Reading) \<^bold>&(gas__in\<^bold>.(NID_Reading)\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis)))  *)
-*)
 find_theorems "(?a \<rightarrow>?P) \<box>( ?Q)"
 
 

@@ -13,7 +13,7 @@
 theory GA_Trans_ZM
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
-          Guard "HOL-CSP_OpSem.DeadlockFreenessStuff"
+          Guard "HOL-CSP_OpSem.DeadlockFreenessStuff_v3"
 begin
 
 \<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
