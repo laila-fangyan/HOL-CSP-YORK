@@ -6,8 +6,8 @@
 
  ******************************************************************************\<close>
 theory Bounded_Buffer_211124_ddf_automation_incomplete
-  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete""HOL-CSPM.MultiDet"
-          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete" "HOL-CSPM.Global_Deterministic_Choice"
+          "HOLCF-Library.List_Cpo" (*"HOL-CSP_Proc-Omata.CompactificationSync"*)
           Guard
 begin
 
@@ -184,10 +184,10 @@ text \<open>First, we prove that the bounded buffer is deadlock free.\<close>
 lemma Mndetprefix_trans_subset_FD : 
   \<open>A \<noteq> {} \<Longrightarrow> A \<subseteq> B \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> Q a \<sqsubseteq>\<^sub>F\<^sub>D P a) \<Longrightarrow>
    Mndetprefix B Q \<sqsubseteq>\<^sub>F\<^sub>D Mndetprefix A P\<close>
-  by (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
+  by (metis Mndetprefix_FD_subset dual_order.trans mono_Mndetprefix_FD)
 
 lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
-  by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
+  by (meson Ndet_FD_Det mono_Det_FD trans_FD)
 
 find_theorems "(\<box>)" "(\<sqsubseteq>\<^sub>F\<^sub>D)"
 
@@ -205,7 +205,8 @@ lemma refine_guarded_extchoice:
 lemma extchoice_preguard: "(b \<or> c) \<^bold>& (b \<^bold>& Q) \<box> (c \<^bold>& R) = (b \<^bold>& Q) \<box> (c \<^bold>& R)"
   by (simp add: Guard_def)
 
-lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)) = (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)"
+
+lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<box> i\<in>I. b i \<^bold>& P i)) = (\<box> i\<in>I. b i \<^bold>& P i)"
   apply (induct arbitrary: b P rule: finite_induct)
   apply (auto simp add: Guard_def Det_is_STOP_iff MultiDet_is_STOP_iff)
   apply (metis Det_id)

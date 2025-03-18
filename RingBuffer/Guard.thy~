@@ -1,5 +1,5 @@
 
-theory "Guard"
+theory "Guard-2"
   imports "HOL-CSP_OpSem.Operational_Semantics_Laws"
 begin
 

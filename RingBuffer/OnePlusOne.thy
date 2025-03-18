@@ -1,0 +1,24 @@
+theory OnePlusOne
+imports Main
+begin
+(*lemma L1: "1 + 1 = 2"
+  by simp*)
+
+
+lemma L2: "1 + 2 = 3"
+  by simp
+
+
+lemma L3: "1 + 3 = 5"
+  nitpick
+  sorry
+
+
+lemma L4: "1 + 4 = 5"
+  by simp
+
+(*lemma L4: "1 + 4 = 6"
+  nitpick*)
+
+
+end

@@ -3,12 +3,9 @@
  * This version combines the lemmas in DeadlockFreenessStuff by Benoit and lemmas in Bounded_Buffer_211124_ddf_automation_incomplete by Simon.
  * 03 Feb 2025
 
- * updated due to DeadlockFreenessStuff.thy update by Benoit
- * 25 Feb 2025
-
 *******************************************************************\<close>
 theory DeadlockFreedom_Automation
-  imports "HOL-CSP_OpSem.OpSem_Deadlock_Results" "Guard"
+  imports "HOL-CSP_OpSem.OpSem_Deadlock_Results" Guard
 begin
 
 (**)
@@ -141,7 +138,6 @@ lemma D_iterate_Mndetprefix :
    (if A = {} then if i = 0 then \<D> P else {}
     else {s @ t| s t. set s \<subseteq> ev ` A \<and> length s = i \<and> t \<in> \<D> P})\<close>
   (is \<open>?lhs P i = (if A = {} then if i = 0 then \<D> P else {} else ?rhs P i)\<close>)
-  for P :: \<open>('a, 'r) process\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k\<close>
 proof (split if_split, intro conjI impI)
   show \<open>A = {} \<Longrightarrow> ?lhs P i = (if i = 0 then \<D> P else {})\<close>
     by (cases i) (simp_all add: D_STOP)
@@ -156,17 +152,18 @@ next
     also from "*" have \<open>\<dots> = ?rhs (\<sqinter>a \<in> A \<rightarrow> P) i\<close> .
     also have \<open>\<dots> = ?rhs P (Suc i)\<close>
     proof safe
-      fix s t :: \<open>('a, 'r) trace\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k\<close> assume \<open>set s \<subseteq> ev ` A\<close> \<open>t \<in> \<D> (\<sqinter>a\<in>A \<rightarrow> P)\<close> \<open>i = length s\<close>
+      fix s t assume \<open>set s \<subseteq> ev ` A\<close> \<open>t \<in> \<D> (\<sqinter>a\<in>A \<rightarrow> P)\<close> \<open>i = length s\<close>
       from \<open>t \<in> \<D> (\<sqinter>a\<in>A \<rightarrow> P)\<close>
       obtain a t' where \<open>a \<in> A\<close> \<open>t = ev a # t'\<close> \<open>t' \<in> \<D> P\<close>
-        by (auto simp add: D_Mndetprefix write0_def D_Mprefix \<open>A \<noteq> {}\<close>)
+        by (simp add: D_Mndetprefix write0_def D_Mprefix \<open>A \<noteq> {}\<close>)
+           (metis list.collapse)
       from this(1, 2) have \<open>s @ t = (s @ [ev a]) @ t'\<close> \<open>set (s @ [ev a]) \<subseteq> ev ` A\<close>
                            \<open>length (s @ [ev a]) = Suc (length s)\<close>
         by (simp_all add: \<open>set s \<subseteq> ev ` A\<close>)
       with \<open>t' \<in> \<D> P\<close> show \<open>\<exists>s' t'. s @ t = s' @ t' \<and> set s' \<subseteq> ev ` A \<and>
                                      length s' = Suc (length s) \<and> t' \<in> \<D> P\<close> by blast
     next
-      fix s t :: \<open>('a, 'r) trace\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k\<close>
+      fix s t 
       assume \<open>set s \<subseteq> ev ` A\<close> \<open>length s = Suc i\<close> \<open>t \<in> \<D> P\<close>
       from this(1, 2) obtain a s'
         where \<open>a \<in> A\<close> \<open>s = s' @ [ev a]\<close> \<open>set s' \<subseteq> ev ` A\<close> \<open>length s' = i\<close>
@@ -180,8 +177,7 @@ next
     finally show \<open>?lhs P (Suc i) = ?rhs P (Suc i)\<close> .
   qed
 qed
-
-
+      
 lemma tickFree_iff_set_range_ev : \<open>tickFree s \<longleftrightarrow> set s \<subseteq> range ev\<close>
   by (metis (no_types, lifting) Hiding_tickFree empty_filter_conv image_mono list.set_map subset_code(1)
       tickFree_iff_is_map_ev top_greatest)
@@ -207,19 +203,22 @@ corollary D_iterate_Mndetprefix_UNIV :
 
 (* TODO : find a better name *)
 
+text \<open> York: I've change the notation for the GlobalNdet_iteration operator to use a "+" instead of a "*". This is because   the requirement is that the process can do some number of steps n > 0 before becoming P. This kind of "at least 1"   behaviour is normally given by a "+" rather than "*". 24Jan25\<close>
 
-definition GlobalNdet_iterations :: \<open>('a, 'r) process\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k \<Rightarrow> ('a, 'r) process\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k\<close> (\<open>(_\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> [1000] 999)
+definition GlobalNdet_iterations :: \<open>'a process \<Rightarrow> 'a process\<close> (\<open>(_\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> [1000] 999)
   where \<open>GlobalNdet_iterations P \<equiv> \<sqinter>i \<in> {0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P\<close>
 (*this extends iterate i indefinitely, allowing P to be prefixed by an arbitrary but finite number (>0) of Mndetprefix, with the number of iterations being Ndet*)
 
 
-text \<open>This new operator, which uses the * syntax, says that we can perform 0 events and then behave as P. These two operators  ought to be linked together with some lemmas. 24Jan25\<close>
+text \<open>York:  This new operator, which uses the * syntax, says that we can perform 0 events and then behave as P. These two operators  ought to be linked together with some lemmas. 24Jan25\<close>
 
-definition GlobalNdet_iterations' :: \<open>('a, 'r) process\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k \<Rightarrow> ('a, 'r) process\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k\<close> (\<open>(_\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> [1000] 999)
+definition GlobalNdet_iterations' :: \<open>'a process \<Rightarrow> 'a process\<close> (\<open>(_\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> [1000] 999)
   where \<open>GlobalNdet_iterations' P \<equiv> \<sqinter>i \<in> UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P\<close>
   (* UNIV = {0..} *)
 
+text \<open>York:  The below is a lemma  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F \<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c* we think should be true, but we can't prove it as yet 4Jan25 \<close>
 
+text\<open>Benoit 30Jan\<close>
 lemma GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations : \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P \<sqinter> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
 proof -
   have \<open>UNIV = insert (0 :: nat) {0<..}\<close> by fast
@@ -236,53 +235,56 @@ proof -
   finally show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P \<sqinter> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> .
 qed
 
-
-lemma GlobalNdet_iterations'_Mndetprefix : \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
+text\<open>Benoit 30Jan\<close>
+lemma GlobalNdet_iterations'_Mndetprefix :  \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
 proof -
   have \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = (\<sqinter> i\<in>UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>(\<sqinter>a\<in>UNIV \<rightarrow>  P))\<close>
     by (simp add: GlobalNdet_iterations'_def)
   also have \<open>\<dots> = \<sqinter> i\<in>UNIV. iterate (Suc i)\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
     by (rule mono_GlobalNdet_eq) (simp del: iterate_Suc add: iterate_Suc2)
   also have \<open>\<dots> = \<sqinter> i\<in>{0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
-    by (auto simp add: inj_on_mapping_over_GlobalNdet[of Suc UNIV, simplified]
-        greaterThan_0 intro: mono_GlobalNdet_eq)
+    by (simp add: inj_on_mapping_over_GlobalNdet[of Suc UNIV, simplified]
+                  greaterThan_0 mono_GlobalNdet_eq)
   also have \<open>\<dots> = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> by (simp add: GlobalNdet_iterations_def)
   finally show \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> .
 qed
 
-
-
-lemma GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' :\<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<close>
+text\<open>Benoit 30Jan, the original lemma is  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F \<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c*\<close>
+lemma GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' : \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<close>
 proof (subst Process_eq_spec, safe)
   show \<open>t \<in> \<D> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+) \<Longrightarrow> t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t
     apply (simp add: D_Mndetprefix write0_def D_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
-    apply (cases t, simp_all add:  D_GlobalNdet D_iterate_Mndetprefix_UNIV greaterThan_0)
-    by (metis (no_types, lifting) append_eq_Cons_conv is_ev_def length_greater_0_conv
-              tickFree_Cons_iff zero_less_Suc)
+    apply (cases t, simp_all add:  D_GlobalNdet D_iterate_Mndetprefix_UNIV)
+    by (metis event.exhaust greaterThan_iff hd_append2 length_greater_0_conv
+              list.sel(1, 3) list.set_sel(1) tickFree_def tickFree_tl tl_append_if)
 next
   show \<open>t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<Longrightarrow> t \<in> \<D> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> for t
     apply (simp add: D_Mndetprefix write0_def D_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
-    apply (cases t, simp_all add: D_GlobalNdet D_iterate_Mndetprefix_UNIV greaterThan_0)
-    by (metis append_Cons event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.disc(1) length_Cons tickFree_Cons_iff)
+    apply (cases t, simp_all add:  D_GlobalNdet D_iterate_Mndetprefix_UNIV)
+    by (metis append_Cons event.simps(3) greaterThan_iff length_greater_0_conv list.simps(3) tickFree_Cons_iff)
 next
   show \<open>(t, X) \<in> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+) \<Longrightarrow> (t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t X
     apply (simp add: F_Mndetprefix write0_def F_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (simp add: F_GlobalNdet F_iterate_Mndetprefix_UNIV)
-    apply (cases t, simp_all add: greaterThan_0 append_eq_Cons_conv is_ev_def)
-    by (smt (verit, best) append_eq_Cons_conv is_ev_def length_greater_0_conv
-            tickFree_Cons_iff zero_less_Suc)
+    apply (cases t, simp_all)
+    by (metis bot_nat_0.not_eq_extremum event.exhaust greaterThan_iff hd_append2 less_iff_Suc_add
+              list.sel(1, 3) list.set_sel(1) list.size(3) tickFree_def tickFree_tl tl_append_if)
 next
   show \<open>(t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<Longrightarrow> (t, X) \<in> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> for t X
     apply (simp add: F_Mndetprefix write0_def F_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (simp add: F_GlobalNdet F_iterate_Mndetprefix_UNIV)
-    apply (cases t, simp_all add: gt_ex greaterThan_0)
-    by (meson Cons_eq_appendI event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.disc(1) length_Suc_conv tickFree_Cons_iff)
+    apply (cases t, simp_all add: gt_ex)
+    by (metis append_Cons event.simps(3) greaterThan_0 length_Cons lessI range_eqI tickFree_Cons_iff)
 qed
 
+
+
+
+text \<open> York: This would allow us to prove the following lemma:24Jan25 \<close>
 
 text\<open>Benoit 30Jan, changed from \<open>\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c*  \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close> to  \<longleftrightarrow>\<close>
 
@@ -299,8 +301,10 @@ lemma eat_lemma: \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\
 proof (rule trans_FD)
   show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> Q\<close>
     apply (subst GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations)
-    by (metis FD_iff_eq_Ndet GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' Ndet_assoc mono_Mndetprefix_FD that)
-  next
+    apply (rule mono_Ndet_FD_right)
+    apply (subst GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations')
+    by (intro mono_Mndetprefix_FD ballI \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>)
+next
   show \<open>(\<sqinter>a\<in>UNIV \<rightarrow> Q) \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close>
     by (simp add: prefix_proving_Mndetprefix_UNIV_ref(3))
 qed
@@ -359,7 +363,7 @@ proof -
                 \<open>length t = Suc i\<close> \<open>(u, range ev) \<in> \<F> P\<close> by blast
     from "*"(1, 2, 3) obtain a t'
       where ** : \<open>e = ev a\<close> \<open>t = ev a # t'\<close> \<open>s = t' @ u\<close> \<open>tickFree t'\<close> \<open>length t' = i\<close>
-      by (cases t; simp add: tickFree_def) (metis "*"(2) is_ev_def tickFree_Cons_iff)
+      by (cases t; simp add: tickFree_def) (use event.exhaust in blast)
     hence \<open>(s, range ev) \<in> (\<Union>i. {a. case a of (s, X) \<Rightarrow> tickFree s \<and> length s < Suc i \<and> (\<exists>a. ev a \<notin> X)} \<union>
             {(s @ t, X) |s t X. tickFree s \<and> length s = Suc i \<and> (t, X) \<in> \<F> P})\<close>
       (* TODO: write a better proof *)
@@ -368,30 +372,40 @@ proof -
   qed
   ultimately show \<open>deadlock_free P\<close>
     unfolding AfterExt.deadlock_free_is_right(2)
-    by (metis (no_types, lifting) front_tickFree_nonempty_append_imp gr0_conv_Suc is_processT2_TR
-        is_processT5_S7 length_0_conv length_Suc_conv less_irrefl subset_iff)
+    by (metis (no_types, lifting) append_single_T_imp_tickFree is_processT5_S7 subsetD)
 qed
 
-lemma GlobalNdet_iterations_FD_imp_deadlock_free :
+lemma 
+
+GlobalNdet_iterations_FD_imp_deadlock_free :
   \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
   by (simp add: GlobalNdet_iterations_F_imp_deadlock_free leFD_imp_leF)
 
 
+text\<open>Benoit 30Jan\<close>
+(* this is already proven in the branch of parameterized termination *)
+lemma GlobalNdet_Seq : \<open>(\<sqinter> a\<in>A. P a) \<^bold>; Q = \<sqinter> a\<in>A. (P a \<^bold>; Q)\<close>
+  apply (cases \<open>A = {}\<close>, simp add: STOP_Seq)
+  apply (simp add: Process_eq_spec F_GlobalNdet D_GlobalNdet T_GlobalNdet F_Seq D_Seq)
+  by safe blast+
+
+lemma Mndetprefix_Seq : \<open>(\<sqinter>a\<in>A \<rightarrow> P a) \<^bold>; Q = \<sqinter>a\<in>A \<rightarrow> (P a \<^bold>; Q)\<close>
+  apply (simp add: Mndetprefix_GlobalNdet GlobalNdet_Seq)
+  apply (rule mono_GlobalNdet_eq)
+  by (simp add: write0_def Mprefix_Seq)
 
 text \<open> York: This would be a useful lemma to have, because it would allow us to have an operator that simply does n event steps. 24Jan25
- proved by Benoit 30Jan, SKIP to Skip 25Feb\<close>
-lemma iterate_is_iterate_SKIP_Seq :  \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>Skip \<^bold>; P\<close>
+ proved by Benoit 30Jan\<close>
+lemma iterate_is_iterate_SKIP_Seq :
+  \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>SKIP \<^bold>; P\<close>
 proof (induct i)
-  show \<open>iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P =
-        iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>Skip \<^bold>; P\<close> by simp
+  show \<open>iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P = iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>SKIP \<^bold>; P\<close>
+    by (simp add: SKIP_Seq)
 next
-  fix i assume hyp : \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>Skip \<^bold>; P\<close>
-  show \<open>iterate (Suc i)\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P =
-        iterate (Suc i)\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>Skip \<^bold>; P\<close>
+  fix i assume hyp : \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>SKIP \<^bold>; P\<close>
+  show \<open>iterate (Suc i)\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P = iterate (Suc i)\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>SKIP \<^bold>; P\<close>
     by (auto simp add: Mndetprefix_Seq intro: mono_Mndetprefix_eq hyp)
 qed
-
-
 
 
 text\<open>Benoit 30Jan\<close>
@@ -405,16 +419,17 @@ lemma GlobalNdet_iterations'_GlobalNdet_iterations' : \<open>(P\<^sup>p\<^sup>r\
        apply blast
       apply (metis append.assoc tickFree_append_iff)
      apply blast
-     apply (metis append_self_conv2 non_tickFree_imp_not_Nil)
+    apply (metis eq_Nil_appendI non_tickFree_implies_nonMt)
    apply (metis append.assoc tickFree_append_iff)
   using tickFree_Nil by blast
-
 
 text\<open>Benoit 30Jan, the original is lemma \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>\<close>
 lemma GlobalNdet_iterations_GlobalNdet_iterations : \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
   by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations'
                 GlobalNdet_iterations'_Mndetprefix
                 GlobalNdet_iterations'_GlobalNdet_iterations')
+
+
 
 
 
@@ -448,8 +463,7 @@ thm prefix_proving_Mndetprefix_UNIV_ref(3)
 text\<open>York 31Jan25:\<close>
 
 lemma no_step_refine: "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
-  by (simp add: GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations Ndet_FD_self_left)
-
+  by (simp add: GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations)
 
 (*
 thm binops_proving_Mndetprefi*
@@ -462,102 +476,79 @@ lemma df_step_intro:
   assumes P_def: "P = Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q"
   shows "deadlock_free P"
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (subst P_def)  back (* apply (subst (2) P_def) *)
+  apply (subst P_def) back
   apply (simp add: assms(2))
   done
 
 lemma ndet_prefix_ext_choice:(*this is added for P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)) pattern: prefix of external choice*)
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
-  by (metis mono_Det_FD Det_id assms(1) assms(2))
+  by (metis CSP.mono_Det_FD Det_id assms(1) assms(2))
 
 
+lemma guard_choice:(*this is added for P =  (a & \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P) pattern: prefix of external choice*)
+  assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a \<^bold>&  Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D b \<^bold>&  R"
+  shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a  \<^bold>& Q \<box> b  \<^bold>&  R"
+  by (metis CSP.mono_Det_FD Det_id assms(1) assms(2))
 
-lemma guard_choice:(*this is added for P =  (a & (c\<rightarrow> P)) \<box> (b &  (c \<rightarrow> P)) pattern: prefix of external choice*)
-  assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (a \<^bold>&  Q)" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>&  R)"
-  shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (a  \<^bold>& Q) \<box> (b  \<^bold>&  R)"
-  by (metis mono_Det_FD Det_id assms(1) assms(2))
 
-
-text\<open>The method\<close>
+text\<open>The mothod\<close>
 method deadlock_free uses P_def =
   (rule df_step_intro[OF P_def],
    simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym],
-   simp add: prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
+   simp add: prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
 
 
 text\<open>examples\<close>
-
-
-lemma ex1_m:
+lemma
   assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close> 
+  shows \<open>deadlock_free P\<close>
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (subst P_def) back
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
-  apply (rule eat_lemma)+
-  apply (rule no_step_refine)
-  done 
+  apply (subst P_def) back
+  apply (simp add: eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+  done
 
-lemma ex1_m':
-  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close> 
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD
-[THEN sym])
-  by (simp add: eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))(*through sledgehammer*)
- 
-
-lemma ex1_a:
+lemma 
   assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
   shows \<open>deadlock_free P\<close>
   by (deadlock_free P_def: P_def)
 
-lemma ex2_m:
+
+
+lemma 
   assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
   shows \<open>deadlock_free P\<close>
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (subst (2) P_def)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-    apply (simp add: binops_proving_Mndetprefix_ref(2) eat_lemma 
-                   no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3) )
+  apply (subst P_def) back
+  apply (simp add: binops_proving_Mndetprefix_ref(2) eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
   done
 
-lemma ex2_a:
+lemma 
   assumes P_def': \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
   shows \<open>deadlock_free P\<close>
   by (deadlock_free P_def: P_def')
 
-lemma ex3_m:
+
+
+
+lemma 
   assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
   shows \<open>deadlock_free P\<close>  
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (subst (2) P_def)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
-  apply (rule ndet_prefix_ext_choice)
-   apply (rule eat_lemma)+
-  apply (rule no_step_refine)
-   apply (rule eat_lemma)+
-  apply (rule no_step_refine)
+  apply (subst P_def) back
+
+  apply (simp add: eat_lemma ndet_prefix_ext_choice  no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
   done
 
-
-lemma ex3_m':
+lemma 
   assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
-  shows \<open>deadlock_free P\<close>  
-  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
-  apply (subst (2) P_def)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (simp add: eat_lemma ndet_prefix_ext_choice  no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3) )
-  done
-
-lemma ex3_a:
-  assumes P_def: \<open>P = e\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
   shows \<open>deadlock_free P\<close>
-by (deadlock_free P_def: P_def)
+  by (deadlock_free P_def: P_def)
+
+
 
 
 
@@ -566,75 +557,36 @@ text\<open>lemmas from 'Bounded_Buffer_211124_ddf_automation_incomplete' by Simo
 lemma Mndetprefix_trans_subset_FD : 
   \<open>A \<noteq> {} \<Longrightarrow> A \<subseteq> B \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> Q a \<sqsubseteq>\<^sub>F\<^sub>D P a) \<Longrightarrow>
    Mndetprefix B Q \<sqsubseteq>\<^sub>F\<^sub>D Mndetprefix A P\<close>
-  by (simp add: prefix_proving_Mndetprefix_ref(1))
+  by (metis CSP.mono_Mndetprefix_FD mono_Mndetprefix_FD_set trans_FD)
 
 lemma Ndet_trans_Det_FD :\<open>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> R \<sqsubseteq>\<^sub>F\<^sub>D S \<Longrightarrow> P \<sqinter> R \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> S\<close>
-  by (meson Ndet_FD_Det dual_order.trans mono_Det_FD)
+  by (meson CSP.mono_Ndet_FD mono_Ndet_Det_FD trans_FD)
 
 find_theorems "(\<box>)" "(\<sqsubseteq>\<^sub>F\<^sub>D)"
 
 
-lemma DF_guard_extchoice:  assumes "b \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D R" "b \<or> c"
+lemma DF_guard_extchoice:
+  assumes "b \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D R" "b \<or> c"
   shows "DF UNIV \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
-  by (metis (full_types) Det_STOP Det_commute Guard_False Guard_True assms deadlock_free_Det deadlock_free_def)
+  by (metis Det_STOP Det_commute Guard_False Guard_True assms(1) assms(2) assms(3) deadlock_free_Det deadlock_free_def)
 
-lemma refine_guarded_extchoice:   assumes "b \<or> c" "b \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D R"
+lemma refine_guarded_extchoice:
+  assumes "b \<or> c" "b \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D Q" "c \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "\<sqinter>x\<in>UNIV \<rightarrow>  X \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>& Q) \<box> (c \<^bold>& R)"
-  by (metis Det_STOP Det_commute FD_iff_eq_Ndet Guard_def Ndet_trans_Det_FD assms idem_FD)
+  by (metis Det_STOP Det_commute FD_iff_eq_Ndet Guard_def Ndet_trans_Det_FD assms(1) assms(2) assms(3) idem_FD)
 
 lemma extchoice_preguard: "(b \<or> c) \<^bold>& (b \<^bold>& Q) \<box> (c \<^bold>& R) = (b \<^bold>& Q) \<box> (c \<^bold>& R)"
   by (simp add: Guard_def)
 
-lemma GlobalDet_is_STOP_iff : \<open>\<box>a \<in> A. P a = STOP \<longleftrightarrow> (\<forall>a \<in> A. P a = STOP)\<close>
-  \<comment>\<open>Missing in the theory\<close>
-  by (simp add: STOP_iff_T T_GlobalDet, safe, auto)
-
-
-find_theorems \<open>Sup\<close> \<open>?a :: bool set\<close>
-
-lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<box> i\<in>I. b (i) \<^bold>& (P i))) = (\<box> i\<in>I. b i \<^bold>& P i)"
+lemma MultiDet_preguard: "finite I \<Longrightarrow> (Sup (b ` I) \<^bold>& (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)) = (\<^bold>\<box> i\<in>I. b i \<^bold>& P i)"
   apply (induct arbitrary: b P rule: finite_induct)
-   apply (auto simp add: Guard_def Det_is_STOP_iff GlobalDet_is_STOP_iff)
-  by (metis (mono_tags, lifting) GlobalDet_factorization_union GlobalDet_unit STOP_Det
-      insert_def singleton_conv)
+  apply (auto simp add: Guard_def Det_is_STOP_iff MultiDet_is_STOP_iff)
+  apply (metis Det_id)
+  done
 
-lemma GlobalDet_preguard :
-  \<comment>\<open>Without the assumption \<^term>\<open>finite I\<close>.\<close>
-  \<open>(Sup (b ` I) \<^bold>& (\<box> i\<in>I. b (i) \<^bold>& (P i))) = \<box> i\<in>I. b i \<^bold>& P i\<close>
-  by (auto intro: Process_eq_optimizedI
-      simp add: Guard_def GlobalDet_projs STOP_projs
-      split: if_split_asm)
-
-lemma GlobalDet_preguard_bis :\<open>\<box>i \<in> I. b i \<^bold>& P i = \<box>i \<in> {i \<in> I. b i}. P i\<close>
-proof -
-  have \<open>{i \<in> I. b i} \<union> {i \<in> I. \<not> b i} = I\<close> by blast
-  hence \<open>\<box> i\<in>I. b i \<^bold>& P i = (\<box>i \<in> {i \<in> I. b i}. b i \<^bold>& P i) \<box> (\<box>i \<in> {i \<in> I. \<not> b i}. b i \<^bold>& P i)\<close>
-    by (simp add: GlobalDet_factorization_union)
-  also have \<open>\<box>i \<in> {i \<in> I. b i}. b i \<^bold>& P i = \<box>i \<in> {i \<in> I. b i}. P i\<close>
-    by (auto intro: mono_GlobalDet_eq)
-  also have \<open>\<box>i \<in> {i \<in> I. \<not> b i}. b i \<^bold>& P i = STOP\<close>
-    by (simp add: GlobalDet_is_STOP_iff)
-  finally show \<open>\<box>i \<in> I. b i \<^bold>& P i = \<box>i \<in> {i \<in> I. b i}. P i\<close> by simp
-qed
-
-
-
-
-
-
-lemma generalized_refine_guarded_extchoice:
-  assumes (* "finite I" *) \<open>\<exists>i\<in>I. b(i)\<close> \<open>\<And> i. \<lbrakk> i \<in> I; b(i) \<rbrakk> \<Longrightarrow> \<sqinter>a \<in> UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D P(i)\<close>
-  shows \<open>\<sqinter>a \<in> UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D \<box> i\<in>I. b(i) \<^bold>& P(i)\<close>
-proof (unfold GlobalDet_preguard_bis)
-  have \<open>\<box>i \<in> {i \<in> I. b i}. \<sqinter>a \<in> UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D \<box>i \<in> {i \<in> I. b i}. P i\<close>
-    by (auto intro: mono_GlobalDet_FD assms(2))
-  also have \<open>\<box>i \<in> {i \<in> I. b i}. \<sqinter>a \<in> UNIV \<rightarrow> X = \<sqinter>a \<in> UNIV \<rightarrow> X\<close>
-    apply (rule GlobalDet_id)
-    using \<open>\<exists>i\<in>I. b(i)\<close> by blast
-  finally show \<open>\<sqinter>a \<in> UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D \<box>i \<in> {i \<in> I. b i}. P i\<close> .
-qed
-text\<open>because we have this pattern on the rhs of the lemma above, we need to normalize the model to match the rhs pattern.\<close>
-(* old proof
+lemma generilized_refine_guarded_extchoice:
+  assumes "finite I" "\<exists>i\<in>I. b(i)" "\<And> i. \<lbrakk> i \<in> I; b(i) \<rbrakk> \<Longrightarrow> \<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D P(i)" 
+  shows "\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (\<^bold>\<box> i\<in>I. b(i) \<^bold>& P(i))"
 using assms proof (induct arbitrary:X rule:finite_induct)
   case empty
   then show ?case
@@ -643,377 +595,69 @@ next
   case (insert x F)
   then show ?case
   proof -
-    from insert have 1:"(\<box> i\<in>({x} \<union> F). b i \<^bold>& P i) = (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<box> i\<in>F. b i \<^bold>& P i))"
-      sledgehammer
-      by (smt (verit, ccfv_threshold) Guard_def GlobalDet_insert' MultiDet_is_STOP_iff Sup_bool_def True_in_image_Bex insert_is_Un)
-    have 2:"\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<box> i\<in>F. b i \<^bold>& P i))"
+    from insert have 1:"(\<^bold>\<box> i\<in>{x} \<union> F. b i \<^bold>& P i) = (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
+      by (smt (verit, ccfv_threshold) Guard_def MultiDet_insert' MultiDet_is_STOP_iff Sup_bool_def True_in_image_Bex insert_is_Un)
+    have 2:"\<sqinter>x\<in>UNIV \<rightarrow> X \<sqsubseteq>\<^sub>F\<^sub>D (b x \<^bold>& P x) \<box> (Sup (b ` F) \<^bold>& (\<^bold>\<box> i\<in>F. b i \<^bold>& P i))"
       apply (rule refine_guarded_extchoice, auto simp add: Sup_bool_def insert)
       using Sup_bool_def insert.prems(1) apply blast
       done
     thus ?thesis
       using "1" by fastforce
   qed
-qed *)
+qed
 
 
-lemma ex4_m:
-  assumes P_def: \<open>P = ((x<(0::int)) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
-  shows \<open>deadlock_free P\<close>
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (rule refine_guarded_extchoice)
-  apply auto
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref)
-  apply (rule no_step_refine)  
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref)
-  apply (rule no_step_refine)
-  done
-
-lemma ex4_m':
-  assumes P_def: \<open>P = ((x<(0::int)) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
-  shows \<open>deadlock_free P\<close>
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (simp add: Guard_def no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3) refine_guarded_extchoice)
-  done
-
-
-lemma ex4_m'':
-  assumes P_def: \<open>P = ((x<(0::int)) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
-  shows \<open>deadlock_free P\<close>
-  apply (rule df_step_intro[OF P_def])
-  by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' 
-                Guard_def no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
- (*also work using 
-  by (auto intro!: refine_guarded_extchoice prefix_proving_Mndetprefix_UNIV_ref no_step_refine 
-         simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
- *)
-  
-
-
-method deadlock_free_guard uses P_def =
-  (rule df_step_intro[OF P_def]
-  , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice Guard_def )
-(*refine_guarded_extchoice not needed*)
-(*does not work if change the 2nd simp into auto intro!,  why? ? *)
-
-method deadlock_free_guard'' uses P_def =
-  (rule df_step_intro[OF P_def]
-  ,auto intro!: eat_lemma refine_guarded_extchoice 
-                prefix_proving_Mndetprefix_UNIV_ref no_step_refine  
-simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-(*does not work for all examples, so not useful*)
-
-
-lemma ex1_a':
-  assumes P_def: \<open>P = (a \<rightarrow> b \<rightarrow> c \<rightarrow> d \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close>
-  by (deadlock_free_guard P_def: P_def)
-
-
-lemma ex2_a':
-  assumes P_def': \<open>P = (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close>
-  by (deadlock_free_guard P_def: P_def')
-
-
-lemma ex3_a':
-  assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
-  shows \<open>deadlock_free P\<close>
-by (deadlock_free_guard P_def: P_def)
-
-
-lemma ex4_auto:
-  assumes P_def: \<open>P = (x < (0::int)) \<^bold>& (a \<rightarrow> P) \<box>( x \<ge> 0) \<^bold>& (b \<rightarrow> P)\<close>
-  shows \<open>deadlock_free P\<close>
-  by (deadlock_free_guard P_def: P_def)
-
-
-
-lemma ex5:
-  assumes P_def: \<open>P = e\<rightarrow>((x < (0::int)) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
+text\<open>Examples\<close>
+lemma (*is this deadlock free?*)
+  assumes P_def: \<open>P = ((x < 0) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
   shows \<open>deadlock_free P\<close>
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (subst (2) P_def)
-  by (simp add: Guard_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+  apply (subst P_def) back
 
-lemma ex5_a:
-  assumes P_def: \<open>P = e\<rightarrow>((x < (0::int)) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P))\<close>
+  oops
+
+lemma 
+  assumes P_def: \<open>P = e\<rightarrow>(((x < 0) \<^bold>& (a \<rightarrow> P)) \<box>(( x \<ge> 0) \<^bold>& (b \<rightarrow> P)))\<close>
   shows \<open>deadlock_free P\<close>
-  by (deadlock_free_guard P_def: P_def)
 
-text\<open>guard extchoice generalization\<close>
+  oops
 
-
-term "b \<^bold>& P \<box> c \<^bold>& Q"
-
-term "b \<^bold>& P "
-term "\<box> i\<in>{0,1::int}. (if i = 0 then b \<^bold>& P else c \<^bold>& Q)"
-
-lemma "\<box> i\<in>{0,1::nat}. (if i = 0 then P else Q) = P \<box> Q"
-  by (simp add: GlobalDet_distrib_unit_bis)
-
-
-lemma bi_extchoice_norm:
-"b \<^bold>& P \<box> c \<^bold>& Q = \<box> i\<in>{0..1::nat}. (if i = 0 then b else c) \<^bold>&(if i = 0 then P else Q)"
-  apply (simp add: GlobalDet_distrib_unit_bis)
-  by (smt (verit, ccfv_threshold) Det_commute GlobalDet_factorization_union GlobalDet_unit 
-        atLeast0_atMost_Suc atLeastAtMost_singleton insert_is_Un
-      old.nat.distinct(1))
-
-lemma bi_extchoice_norm':
-"\<box> i\<in>{0..1::nat}. (if i = 0 then b(0) else c) \<^bold>&(if i = 0 then P(0) else Q) = b(0) \<^bold>& P(0) \<box> c \<^bold>& Q"
-  by (simp add: bi_extchoice_norm)
-
-
-(*insert for set*)
-find_theorems GlobalDet insert
-term GlobalDet
-lemma "(\<box> i\<in>insert a A. P i) = (P a \<box> (\<box> i\<in>A. P i))"
-  by (metis GlobalDet_factorization_union GlobalDet_unit insert_is_Un)
-
-thm GlobalDet_distrib_unit_bis
-
-thm GlobalDet_distrib_unit
-
-(* not used
-lemma generalized_bi_extchoice_norm':
-"\<box> i\<in>{n::nat..n+1}. (if i = n then b(n) else c) \<^bold>& (if i = n then P(n) else Q) = b(n) \<^bold>& P(n) \<box> c \<^bold>& Q"
-  proof (induction n)
-  case 0
-  then show ?case
-    using bi_extchoice_norm' by auto 
-next
-  case (Suc n)
-  then show ?case 
-     proof -
-       have step1: "\<box> i\<in>{Suc n::nat..Suc n+1}. (if i = Suc n then b(Suc n) else c) \<^bold>&(if i = Suc n then P(Suc n) else Q)
-= \<box> i\<in>{n+1..n+2}. (if i = n+1 then b(n+1) else c) \<^bold>&(if i = n+1 then P(n+1) else Q) "
-         by (metis (no_types, lifting) add.commute add_2_eq_Suc' mono_GlobalDet_eq plus_1_eq_Suc)
-    
-  have IH: "\<box> i\<in>{n::nat..n+1}. (if i = n then b(n) else c) \<^bold>&(if i = n then P(n) else Q) = b(n) \<^bold>& P(n) \<box> c \<^bold>& Q"
-    using Suc.IH .
-
-  also have step2: "\<box> i\<in>{Suc n..Suc n+1}. (if i = Suc n then b(Suc n) else c) \<^bold>&(if i = Suc n then P(Suc n) else Q) 
-= \<box> i\<in>{n+1..n+2}. (if i = n+1 then b(n+1) else c) \<^bold>&(if i = n+1 then P(n+1) else Q)"
-    using step1 by blast
-  
-  have step3: "\<box> i\<in>{n+1..n+2}. (if i = n+1 then b(n+1) else c) \<^bold>&(if i = n+1 then P(n+1) else Q)
-=  \<box> i\<in>{n+1..(n+1)+1}. (if i = n+1 then b(n+1) else c) \<^bold>&(if i = n+1 then P(n+1) else Q)
-"    using Suc_eq_plus1 add_2_eq_Suc' by presburger
-  
-  
-  define m where  " m = n + 1"
-   then have step5: " \<box> i\<in>{n+1..(n+1)+1}. (if i = n+1 then b(n+1) else c) \<^bold>&(if i = n+1 then P(n+1) else Q) 
-= \<box> i\<in>{m..m+1}. (if i = m then b(m) else c) \<^bold>&(if i = m then P(m) else Q) "
-     by blast
-    have step6: "\<box> i\<in>{m..m+1}. (if i = m then b(m) else c) \<^bold>&(if i = m then P(m) else Q) = b(m) \<^bold>& P(m) \<box> c \<^bold>& Q"
-      using IH  
-      
-      oops*)
 
 
 lemma 
-  assumes "\<And> i. i \<in> A \<Longrightarrow> P i = Q i"
-  shows "(\<box>i\<in>A. P i) = (\<box>i\<in>A. Q i)"
-  using assms mono_GlobalDet_eq by blast
-
-text\<open>to push an binary operator term\<open>(\<box>)\<close> into generalized extchoice, this proof does not use induction \<close>
-lemma biextchoic_normalization:
-  "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> c \<^bold>& Q 
-   = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else c) \<^bold>& (if i \<le> n then P(i) else Q))"
- (is "?lhs = ?rhs")
-proof -
-  have 1:"{0..Suc n} = insert (Suc n) {0..n}"
-    by (simp add: atLeast0_atMost_Suc)
-  have "?rhs = 
-        c \<^bold>& Q \<box> (\<box>i\<in>{0..n}. (if i \<le> n then b i else c) \<^bold>& (if i \<le> n then P i else Q))"
-    by (simp add: 1 GlobalDet_distrib_unit)
-  also have "... = (\<box>i\<in>{0..n}. (if i \<le> n then b i else c) \<^bold>& (if i \<le> n then P i else Q)) \<box> c \<^bold>& Q"
-    by (meson Det_commute)
-  also have "... = (\<box>i\<in>{0..n}. (b i) \<^bold>& (P i)) \<box> c \<^bold>& Q"
-  proof -
-    have "(\<box>i\<in>{0..n}. (if i \<le> n then b i else c) \<^bold>& (if i \<le> n then P i else Q)) = (\<box>i\<in>{0..n}. (b i) \<^bold>& (P i))"
-      by (rule mono_GlobalDet_eq, simp)
-    thus ?thesis by simp
-  qed
-  finally show ?thesis ..
-qed
-
-
-lemma biextchoic_normalization_rev:
-  "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> c \<^bold>& Q 
-   = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else c) \<^bold>& (if i \<le> n then P(i) else Q))"
-  apply (rule biextchoic_normalization)
-  done
-
-text\<open>for P that has no guard (i.e., guard = True)\<close>
-lemma biextchoic_normalization_nguard:
-  "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> Q 
-   = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else True) \<^bold>& (if i \<le> n then P(i) else Q))"
-  (is "?lhs = ?rhs")
-proof -
-  have "?lhs = (\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> True \<^bold>& Q"
-    by (simp add: Guard_True)
-  also have "... = ?rhs"
-    using biextchoic_normalization by blast
-  finally show ?thesis .
-qed
-
-
-lemma ex6: \<open> b(0) \<^bold>& (a \<rightarrow> P) \<box> b(1) \<^bold>& (a\<rightarrow> P)  = \<box> i\<in>{0::nat..1}. (if i = 0 then b(0) else b(1)) \<^bold>&(if i = 0 then (a\<rightarrow> P) else (a\<rightarrow>P))\<close>
-  apply (rule bi_extchoice_norm )
-  done
-
-lemma ex6_1: \<open> b(0) \<^bold>& (a \<rightarrow> P) \<box> b(1) \<^bold>& (a\<rightarrow> P)  = \<box> i\<in>{0::nat..1}.b(i) \<^bold>& (a\<rightarrow>P)\<close>
-  apply (rule bi_extchoice_norm [THEN sym])
-  apply (rule bi_extchoice_norm )
-  done
-lemma ex6': \<open> b(0) \<^bold>& (a \<rightarrow> P) \<box> b(1) \<^bold>& (a\<rightarrow> P)  = \<box> i\<in>{0::nat..1}. (if i = 0 then b(0) else b(1)) \<^bold>&(if i = 0 then (a\<rightarrow> P) else (a\<rightarrow>P))\<close>
-  apply (rule bi_extchoice_norm )
-  done
-lemma ex6'':  \<open> (b(0) \<^bold>& (a \<rightarrow> P) \<box> b(1) \<^bold>& (a\<rightarrow> P)) \<box> b(2) \<^bold>& (a\<rightarrow> P)
-= \<box> i\<in>{0::nat..2}. (if i \<le> 1 then b(i) else b(2)) \<^bold>&(if i \<le> 1 then (a\<rightarrow> P) else (a\<rightarrow>P))\<close>
-  apply (rule bi_extchoice_norm )
+  assumes P_def: \<open>P =( b \<^bold>& P \<box> c \<^bold>& Q)\<close>
+  shows \<open>deadlock_free P\<close> 
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (subst P_def) back
   oops
-(*
-(*binary \<box>  normalization*)
-lemma biextchoic_normalization:
-"(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> c \<^bold>& Q 
-       = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else c) \<^bold>& (if i \<le> n then P(i) else Q))"
-(is \<open>?lhs n = ?rhs n\<close>)
-proof (induction n)
-  case 0
-  then show ?case 
-    apply auto
-    apply (simp add:bi_extchoice_norm'[THEN sym])
-    by (smt (verit, best) mono_GlobalDet_eq)
-next
-  (*case (Suc n)
-  then show ?case *)
-  fix n
-  assume hyp: "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> c \<^bold>& Q 
-       = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else c) \<^bold>& (if i \<le> n then P(i) else Q))"
-     proof -
-    have step1: "(\<box>  i\<in>{0..Suc n}. b(i)  \<^bold>&  P(i))\<box> c \<^bold>& Q 
-                 = (\<box> i\<in>{0..n}. b(i) \<^bold>&  P(i)) \<box> (b(Suc n) \<^bold>&  P(Suc n)) \<box> (c \<^bold>& Q) "
-      by (simp add: Det_commute GlobalDet_distrib_unit_bis atLeast0AtMost atMost_Suc)
-    also have step2: "... = (\<box> i\<in>{0..n}. b(i) \<^bold>&  P(i))  \<box> (c \<^bold>& Q) \<box> (b(Suc n) \<^bold>&  P(Suc n))"
-      by (metis (full_types) Det_assoc Det_commute)
-
-    also have step3: "(\<box> i\<in>{0..(Suc n +1)}. (if i \<le> (Suc n) then b(i) else c) \<^bold>& (if i \<le> (Suc n) then P(i) else Q))
-                      =  (\<box> i\<in>{0..(Suc n + 1)}. (if i \<le> n then b(i) else (if i= Suc n then b(Suc n) else c))
-                                              \<^bold>& (if i \<le> n then P(i) else (if i=Suc n then P(Suc n) else  Q)))  "
-      by (smt (verit, best) le_Suc_eq mono_GlobalDet_eq)
-    also have 
-    oops
-    
-  then show ?thesis sorry
-qed 
-*)
-
-
-
-term "\<box> i\<in>I. b(i) \<^bold>& P(i)"
 
 
 
 
-
-lemma ex7: 
-  assumes P_def: \<open>P = \<box> i\<in>{0..2::nat}. b(i) \<^bold>& (a\<rightarrow> P)\<close> and 
-   \<open>b(0::nat) \<or> b(1) \<or> b(2)  \<close>
-  shows\<open>deadlock_free (P) \<close>
- apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
-  apply (rule generalized_refine_guarded_extchoice)
-  using assms apply auto[1] 
-  apply (simp add: no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
-  done
-
-lemma ex7': 
-  assumes P_def: \<open>P = b(0) \<^bold>& (a\<rightarrow> P) \<box>  b(1) \<^bold>& (a\<rightarrow> P) \<close> and 
-   \<open>b(0::nat) \<or> b(1)   \<close>
-  shows\<open>deadlock_free (P) \<close>
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: GlobalDet_distrib_unit)
-
-  apply (rule GlobalDet_distrib_unit_bis)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
-  apply (rule GlobalDet_distrib_unit)
-  apply (rule generalized_refine_guarded_extchoice)
-  using assms apply auto[1] 
-  apply (simp add: no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
-  done
-lemma ex7'': 
-  assumes 
-    P_def: \<open>\<And> i. P i = (\<box> i\<in>{0..3::nat}. b(i) \<^bold>& (a \<rightarrow> P i))\<close>  and
-    prp: \<open>b(0::nat) \<or> b(1) \<or> b(2) \<or> b(3) \<close>
-  shows\<open>deadlock_free (P x)\<close>
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
-  thm generalized_refine_guarded_extchoice
-  apply (rule generalized_refine_guarded_extchoice)
-  using assms apply auto[1]
-  thm assms
-  apply (rule no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
-  by (metis P_def no_step_refine )
-
-
-
-lemma ex7''': 
-  assumes 
-    P_def: \<open>\<And> i. P i = (\<box> i\<in>{0..3::nat}. b(i) \<^bold>& (a \<rightarrow> P i))\<close> 
-  shows\<open>b(0::nat) \<or> b(1) \<or> b(2) \<or> b(3) \<Longrightarrow> deadlock_free (P x)\<close>
-  apply (rule df_step_intro[OF P_def])
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice)
-  thm generalized_refine_guarded_extchoice
-  apply (rule generalized_refine_guarded_extchoice)
-  apply auto[1]
-  apply (rule no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3) )
-  thm assms
-  by (metis assms no_step_refine)
-
-
-method deadlock_free_guard_normed uses P_def  prp=
-  (rule df_step_intro[OF P_def]
-  , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice Guard_def
-, rule generalized_refine_guarded_extchoice 
- 
-, simp add: no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3)
-
-(*TBC*)
-)
-
-
-
-lemma ex7_a: 
-  assumes P_def: \<open>P = \<box> i\<in>{0..2::nat}. b(i) \<^bold>& (a\<rightarrow> P)\<close> and 
-  prp: \<open>b(0::nat) \<or> b(1) \<or> b(2)  \<close>
-shows\<open>deadlock_free (P) \<close>
-  by (deadlock_free_guard_normed P_def: P_def)
-
-
-
-
-lemma ex8: 
-  assumes P_def: \<open>P = b(0) \<^bold>& (a \<rightarrow> P) \<box> (b(1) \<^bold>& P \<box> b(2) \<^bold>& (a \<rightarrow>P))\<close>and
-   prp: \<open>b(0::nat) \<or> b(1) \<or> b(2)  \<close>
-  shows\<open>deadlock_free P \<close>
+lemma 
+  assumes P_def: \<open>P = \<^bold>\<box> i\<in>{0,1,2}. if i = 0 then b \<^bold>& P else if i = 1 then c \<^bold>& Q else d \<^bold>& R\<close>
+  shows \<open>deadlock_free P\<close>
   oops
+
+
+
+lemma 
+  assumes P_def: \<open>P = ((x < 0) \<^bold>& a \<rightarrow> P) \<box>(( x \<ge> 0) \<^bold>& b \<rightarrow> P)\<close>
+  shows \<open>deadlock_free P\<close>
+  by (deadlock_free P_def: P_def)
+
+term "b \<^bold>& P \<box> c \<^bold>& Q"
+
+term "\<^bold>\<box> i\<in>{0,1}. if i = 0 then b \<^bold>& P else c \<^bold>& Q"
+
+lemma "\<^bold>\<box> i\<in>{0,1}. if i = 0 then P else Q = P \<box> Q"
+  apply simp
+  oops
+
+
+term "\<^bold>\<box> i\<in>I. b(i) \<^bold>& P(i)"
 
 
 end

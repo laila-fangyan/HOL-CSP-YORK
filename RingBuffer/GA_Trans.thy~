@@ -1,7 +1,16 @@
-
+\<comment>\<open> **********************************************************************************
+ * This file models the transitions of GasAnalysis in HOL-CSP based 
+ * the RoboChart Circus semantics.
+ * 
+ * The proof of deadlock_free_trans lemma is not conducted, the proof body
+ * is for the Bounded Buffer. The proof and proof automation is conducted
+ * for the ZM version.
+ * 
+ * Date: 12-10-2024
+ *************************************************************************************\<close>
 theory GA_Trans
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo" "HOL-CSP_Proc-Omata.CompactificationSync"
+          "HOLCF-Library.List_Cpo" (*"HOL-CSP_Proc-Omata.CompactificationSync"*)
           Guard
 begin
 
@@ -122,30 +131,31 @@ definition trans :: "trans_event process"
   where  \<open>trans \<equiv> 
   get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
   (
-  (internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> SKIP) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> SKIP))) \<^bold>; (enter_Reading  \<rightarrow> SKIP)
+  ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> Skip) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Skip)
 
   \<box>
-   ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> SKIP)\<^bold>; (enter_Reading  \<rightarrow> SKIP)))))
+   ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Skip)))))
   \<box>
-  ((sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> SKIP)\<^bold>; (( (exit  \<rightarrow> SKIP))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> SKIP)))\<^bold>; (enter_NoGas  \<rightarrow> SKIP)))))))
+  ((sts = noGas) \<^bold>& ( ((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> Skip)))\<^bold>; (enter_NoGas  \<rightarrow> Skip)))))))
   \<box>
-  ((sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> SKIP)\<^bold>; (enter_GasDetected \<rightarrow> SKIP)))))))
+  ((sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> Skip)\<^bold>; (enter_GasDetected \<rightarrow> Skip)))))))
   \<box>
-  (goreq(ins,thr) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( (exit \<rightarrow> SKIP))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> SKIP)))\<^bold>; (enter_j1 \<rightarrow> SKIP)))))))
+  (goreq(ins,thr) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> Skip)))\<^bold>; (enter_j1 \<rightarrow> Skip)))))))
   \<box>
-  ((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> SKIP)\<^bold>; (( exit \<rightarrow> SKIP)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> SKIP))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> SKIP)))))\<^bold>; (enter_Reading \<rightarrow> SKIP)))))))
-  \<box>
+  ((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( exit \<rightarrow> Skip)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> Skip))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> Skip)))))\<^bold>; (enter_Reading \<rightarrow> Skip)))))))
+  ) 
+ \<box>
 
-  ((interrupt \<rightarrow> (exit \<rightarrow> SKIP)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> SKIP)))
+  ((interrupt \<rightarrow> (exit \<rightarrow> Skip)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> Skip)))
   \<box>
-  (terminate \<rightarrow> SKIP)
+  (terminate \<rightarrow> Skip)
 ) \<close>
  (* \<box>
-  (gas__in\<^bold>.(NID_Reading)\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> SKIP)) \<^bold>; ((exit  \<rightarrow> SKIP) \<^bold>; ( (exited  \<rightarrow> SKIP) \<^bold>; (enter_Analysis  \<rightarrow> SKIP)))  *)
+  (gas__in\<^bold>.(NID_Reading)\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> Skip)) \<^bold>; ((exit  \<rightarrow> Skip) \<^bold>; ( (exited  \<rightarrow> Skip) \<^bold>; (enter_Analysis  \<rightarrow> Skip)))  *)
 
 
 
-
+(*
 lemma deadlock_free_trans : \<open>deadlock_free (trans)\<close>
 proof (unfold deadlock_free_def DF_def)
   show \<open>(\<mu> X. \<sqinter>x\<in>UNIV \<rightarrow>  X) \<sqsubseteq>\<^sub>F\<^sub>Dtrans\<close>
@@ -202,8 +212,31 @@ proof (unfold deadlock_free_def DF_def)
   qed
 qed
 
+*)
 
+fixrec trans' :: "trans_event process"
+  where  \<open>trans \<equiv> 
+  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
+  (
+  ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> Skip) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Skip)
 
+  \<box>
+   ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Skip)))))
+  \<box>
+  ((sts = noGas) \<^bold>& ( ((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> Skip)))\<^bold>; (enter_NoGas  \<rightarrow> Skip)))))))
+  \<box>
+  ((sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> Skip)\<^bold>; (enter_GasDetected \<rightarrow> Skip)))))))
+  \<box>
+  (goreq(ins,thr) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> Skip)))\<^bold>; (enter_j1 \<rightarrow> Skip)))))))
+  \<box>
+  ((\<not>goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( exit \<rightarrow> Skip)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> Skip))))\<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> Skip)))))\<^bold>; (enter_Reading \<rightarrow> Skip)))))))
+  ) 
+ \<box>
+
+  ((interrupt \<rightarrow> (exit \<rightarrow> Skip)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> Skip)))
+  \<box>
+  (terminate \<rightarrow> Skip)
+) \<close>
 end
 
 
