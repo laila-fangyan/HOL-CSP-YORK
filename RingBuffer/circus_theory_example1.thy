@@ -37,8 +37,8 @@ subsection \<open> Model \<close>
 datatype NIDS_stm0 = 
 	NID_i0_stm0 | 
 	NID_s0_stm0 | 
-	NID_s1_stm0
-
+	NID_s1_stm0 |
+	NID_s2_stm0
 instantiation NIDS_stm0 :: discrete_cpo
 begin
 
@@ -53,7 +53,7 @@ end
 (*instantiation NIDS_stm0 :: discrete_cpo*)
 
 locale Trans_ex1 = 
- fixes c :: nat
+ fixes d :: nat
 begin
 \<comment> \<open>Channel Declaration\<close>
 datatype trans_event = 
@@ -85,6 +85,12 @@ datatype trans_event =
 "b_out" |
 
 "b__in" "NIDS_stm0"|
+
+
+"c_in" |
+"c_out" |
+
+"c__in" "NIDS_stm0"|
 	
 \<comment> \<open>junction_channel_in_stmbd_i0_stm0\<close>
 
@@ -105,7 +111,15 @@ datatype trans_event =
 "entered_s1_stm0" |
 "interrupt_s1_stm0"| 
 "enteredL_s1_stm0" |
-"enteredR_s1_stm0" 
+"enteredR_s1_stm0" |
+	
+\<comment> \<open>state_channel_in_stmbd_s2_stm0\<close>
+
+"enter_s2_stm0" |
+"entered_s2_stm0" |
+"interrupt_s2_stm0"| 
+"enteredL_s2_stm0" |
+"enteredR_s2_stm0" 
 	
 fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
   where \<open>Trans_ex1\<cdot>n = 
@@ -113,6 +127,11 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
     (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
 	  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
+ \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
+
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
 	  \<box>

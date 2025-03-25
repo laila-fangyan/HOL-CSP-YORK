@@ -467,6 +467,8 @@ lemma
   shows "\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
   by (smt (verit) assms(1) assms(2) binops_proving_Mndetprefix_ref(2))*)
 
+
+(*df_step_intro does not cover index/prameterized process*)
 lemma df_step_intro:
   assumes P_def: "P = Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q"
   shows "deadlock_free P"
@@ -475,12 +477,28 @@ lemma df_step_intro:
   apply (simp add: assms(2))
   done
 
+lemma df_step_param_intro:
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. (GlobalNdet UNIV P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (subst P_def)  back
+  apply (simp add: assms(2) mono_GlobalNdet_FD_const) (* apply (subst (2) P_def) *)
+  done
+
+(*
+lemma df_step_param_intro':
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. \<exists> y. (P y)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+*)
+
+
+
 lemma ndet_prefix_ext_choice:(*this is added for P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)) pattern: prefix of external choice*)
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
   by (metis mono_Det_FD Det_id assms(1) assms(2))
 
-
+find_theorems FD "?P \<box> ?Q"
 
 lemma guard_choice:(*this is added for P =  (a & (c\<rightarrow> P)) \<box> (b &  (c \<rightarrow> P)) pattern: prefix of external choice*)
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (a \<^bold>&  Q)" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (b \<^bold>&  R)"
@@ -785,6 +803,11 @@ lemma bi_extchoice_norm:
         atLeast0_atMost_Suc atLeastAtMost_singleton insert_is_Un
       old.nat.distinct(1))
 
+lemma bi_extchoice_nguard_norm:
+"(a\<rightarrow> P) \<box>(b\<rightarrow>  Q) = True \<^bold>& (a\<rightarrow> P) \<box> True \<^bold>& (b\<rightarrow>Q) "
+  by simp
+
+
 
 (*insert for set*)
 find_theorems GlobalDet insert
@@ -879,6 +902,8 @@ proof -
     using biextchoic_normalization by blast
   finally show ?thesis .
 qed
+
+
 
 lemma biextchoic_normalization_nguard_prefix:
   "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> (a \<rightarrow> Q) 
@@ -1015,23 +1040,6 @@ lemma ex9:
  
   oops
 
- find_theorems SKIP 
-
-
-(*Do we need extra lemmas for Skip? or is this deadlock?*)
-lemma "deadlock_free Skip"
-  oops
-
-lemma ex_Skip:
-  assumes P_def:" P = terminate \<rightarrow> Skip" 
-  shows\<open>deadlock_free P \<close>
-  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)  
-  apply (subst P_def)  back 
-apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
-
-  thm Seq_SKIP
-  oops 
 
 lemma ex10: 
   assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(0)) )\<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box> (terminate \<rightarrow> P(3)) )\<close> and 
@@ -1066,8 +1074,8 @@ lemma ex11:
   apply (rule df_step_intro[OF P_def])
   (* Normalisation for the extchoice and seq*)
 
-(* apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq) this will fail to push b2 into bi, as Isaelle will apply biextchoic_normalization_nguard before biextchoic_normalization.
-the correct application order of the lemmas
+(* if apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq), this will FAIL to push b2 into bi, as Isaelle will apply biextchoic_normalization_nguard before biextchoic_normalization.
+the CORRECT application order of the lemmas:
   apply (simp add: bi_extchoice_norm  )
   apply (simp add: biextchoic_normalization  )
   apply (simp add: biextchoic_normalization_nguard  )
@@ -1093,13 +1101,6 @@ try with new laptop*)
 text\<open>with ex11, now the task is to use auto intro to apply refinement rules instead of using metis. because we need to integrate this into proof method, and metis can not be used in a proof method. \<close>
 
 
-text\<open>The method for normalization: to remove as many operators as possible, this version covers guard, extchoice and sequence\<close>
-method normalization uses P_def =
-  (subst P_def
-  , simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
-
-
-
 lemma ex11_step1_norm_manul:
   assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P (0)) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(2))) \<box> (terminate \<rightarrow> P(3)) )\<close>
 
@@ -1112,6 +1113,22 @@ shows \<open> (P x)  = e \<rightarrow>
   apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
   done
 
+text\<open>The method for normalization: to remove as many operators as possible, this version covers guard, extchoice and sequence\<close>
+method normalization uses P_def =
+  (subst P_def
+  , simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+(*using undefined on RHS to automaticlly derive the normed form. How to implement during Eclipse commu?*)
+lemma seq_norm:
+  assumes P_def: \<open>P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> Skip) \<^bold>; (b \<rightarrow> c \<rightarrow> P))\<close>
+ shows\<open>P = d \<rightarrow> a \<rightarrow> b \<rightarrow> b \<rightarrow> c \<rightarrow> P  \<close>
+ by (normalization P_def: P_def)
+ 
+lemma ex8_norm:
+  assumes P_def: \<open>P = b(0) \<^bold>& (a \<rightarrow> P) \<box> b(1) \<^bold>& (a\<rightarrow>P) \<box> b(2) \<^bold>& (a \<rightarrow>P)\<close>
+  shows\<open>P = \<box>i\<in>{0..Suc (Suc 0)}. (if i \<le> Suc 0 then if i = 0 then b 0 else b 1 else b 2) \<^bold>& (a \<rightarrow> P) \<close>
+ by (normalization P_def: P_def)
+ 
 
 lemma ex11_step1_norm_auto:
   assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P (0)) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(2))) \<box> (terminate \<rightarrow> P(3)) )\<close>
@@ -1145,15 +1162,15 @@ lemma ex11_step2_df_m:
   by (simp add: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
 
 
-
-text\<open>The method for deadlock freedom after normalization\<close>
+text\<open>The method for deadlock freedom of normalized process\<close>
 method deadlock_free_normed uses P_def assms=
   (rule df_step_intro[OF P_def]
   , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
 , rule prefix_proving_Mndetprefix_UNIV_ref(3)
-, rule generalized_refine_guarded_extchoice_star
+, rule generalized_refine_guarded_extchoice_star 
 , insert atLeast0AtMost assms, auto
-, auto intro!: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+, (simp add: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))+
+)
 
 lemma ex11_step2_df_a: 
   assumes P_def: \<open>\<And> i. P i  = e \<rightarrow>
@@ -1166,7 +1183,35 @@ lemma ex11_step2_df_a:
   by (deadlock_free_normed P_def: P_def)
 
 
+lemma ex3_step1:
+ assumes P_def: \<open>P = e\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
+ shows \<open>P = undefined\<close>
+  by (normalization P_def: P_def)
+ 
+lemma ex3_reverify:
+  assumes P_def: \<open>P = e\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
+  shows \<open>deadlock_free P\<close>
+by (deadlock_free_normed P_def: P_def)
 
+thm no_step_refine
+
+
+lemma inc_df_ex_aux:
+  assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+   (* Apply induction *)
+  apply (rule df_step_param_intro[OF P_def])
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3) generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
+  apply (rule order.trans)
+  apply (rule no_step_refine)
+  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)
+  done
+
+lemma inc_df_ex_aux:
+  assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
+  shows "deadlock_free (P 0)"
+  by (meson UNIV_I assms deadlock_free_GlobalNdet_iff inc_df_ex_aux)
 
 
 
@@ -1178,7 +1223,6 @@ lemma ex11_no_para:
   apply (rule df_step_intro[OF P_def])
   (* Normalisation for the extchoice and seq*)
   apply (simp add: biextchoic_normalization bi_extchoice_norm biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
- (*? ? ? b2 is not discharged*)
 
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
@@ -1188,9 +1232,98 @@ lemma ex11_no_para:
   done  
 
 
+text\<open>DF Skip\<close>
+find_theorems SKIP 
+
+
+(*Do we need extra lemmas for Skip? or is this deadlock?*)
+lemma "deadlock_free Skip"
+  oops
+
+lemma ex_Skip:
+  assumes P_def:" P = terminate \<rightarrow> Skip" 
+  shows\<open>deadlock_free P \<close>
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)  
+  apply (subst P_def)  back 
+apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
+  find_theorems DF SKIP
+  thm Seq_SKIP
+  sorry
+
+lemma ex_Skip':
+  assumes P_def:" P = terminate \<rightarrow> Skip" 
+  shows \<open>\<sqinter>a\<in>UNIV \<rightarrow> (P x)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close>
+  apply (rule df_step_intro[OF P_def])
+
+text\<open>The method for deadlock freedom of normalized process\<close>
+method deadlock_free_normed_Skip uses P_def assms=
+  (rule df_step_intro[OF P_def]
+  , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
+, rule prefix_proving_Mndetprefix_UNIV_ref(3)
+, rule generalized_refine_guarded_extchoice_star ex_Skip
+, insert atLeast0AtMost assms, auto
+, (simp add: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))+
+)
+(*ex12 needs ex_Skip*)
 lemma ex12: 
   assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(0)) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(2))) \<box> (terminate \<rightarrow> Skip) )\<close> and 
    \<open>b(0::nat) \<or> b(1)  \<or> b(2)  \<close>
  shows\<open>deadlock_free (P x) \<close>
+   apply (rule df_step_intro[OF P_def])
+  (* Normalisation for the extchoice and seq*)
+
+(* if apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq), this will FAIL to push b2 into bi, as Isaelle will apply biextchoic_normalization_nguard before biextchoic_normalization.
+the CORRECT application order of the lemmas:
+  apply (simp add: bi_extchoice_norm  )
+  apply (simp add: biextchoic_normalization  )
+  apply (simp add: biextchoic_normalization_nguard  )
+*)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
+
+  (* Introduction for generalised external choice *)
+  apply (rule generalized_refine_guarded_extchoice_star)
+   (* Sledgehammer the guard disjunction *)
+  using atLeast0AtMost apply auto[1]
+
+  apply auto
+  apply (metis P_def eat_lemma no_step_refine
+      prefix_proving_Mndetprefix_UNIV_ref(3))
+  apply (metis P_def eat_lemma no_step_refine
+      prefix_proving_Mndetprefix_UNIV_ref(3))
+  apply (metis P_def eat_lemma no_step_refine
+      prefix_proving_Mndetprefix_UNIV_ref(3))
+  apply (rule ex_Skip)
+  by (metis P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))+
+
+
+
+text\<open>can @term{\<triangle>} be normalized? for the pattern in Trans : SSTOP@term{\<triangle>}, we need a lemma to deal with ddlf \<close>
+
+  find_theorems "?P \<triangle>  ?Q"
+  find_theorems "?P \<triangle> (?a \<rightarrow> ?Q)"
+  thm mono_Interrupt_D_right
+
+
+lemma interrupt_ddf:
+  assumes  P_def:"P = share \<rightarrow> P" and  Q_def:"Q = a \<rightarrow> Q"
+  shows "deadlock_free (P \<triangle> Q)"
   oops
+
+lemma interrupt_ddf:
+  assumes  P_def:"P = share \<rightarrow> P" and  Q_def:"Q = a \<rightarrow> Q"
+  shows "deadlock_free (P \<triangle> Q)"
+proof -
+  have 1:"deadlock_free P"
+    by  (deadlock_free P_def: P_def )
+  have 2: "deadlock_free Q"
+    by  (deadlock_free P_def: Q_def )
+  show "deadlock_free (P \<triangle> Q)"
+    using P_def Q_def 1 2
+    apply (auto intro!: Det_assoc Interrupt_write0 Ndet_id P_def Q_def ex2_a' write0_Det_write0_is_write0_Ndet_write0 write0_Ndet_write0)
+    oops
+
 end
