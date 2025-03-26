@@ -1,4 +1,4 @@
-theory circus_theory_example1 
+theory circus_theory_example1_add_s2_ddl
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
 begin
@@ -120,7 +120,43 @@ datatype trans_event =
 "interrupt_s2_stm0"| 
 "enteredL_s2_stm0" |
 "enteredR_s2_stm0" 
-	
+
+
+
+fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
+  where \<open>Trans_ex1\<cdot>n = 
+
+    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
+ \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s2_stm0)))))
+
+
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
+
+\<close>
+
+lemma Trans_norm:
+  assumes P_def: \<open>\<And> n::NIDS_stm0. Trans_ex1 n  =   (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
+ \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s2_stm0)))))
+
+
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
+\<close>
+
+shows \<open> ( Trans_ex1 (n::NIDS_stm0) )  = undefined \<close>
+  by (normalization P_def: P_def)
+ 
+
+(*
 fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
   where \<open>Trans_ex1\<cdot>n = 
 
@@ -141,7 +177,7 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
 	  \<box>
 	  (terminate \<rightarrow> Skip)
 \<close>
-
+*)
 lemma skip_seq: "(a \<rightarrow> Skip) \<^bold>; b\<rightarrow>P = a \<rightarrow>b\<rightarrow> P"
   by (simp add: write0_Seq)
 

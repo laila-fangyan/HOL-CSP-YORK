@@ -486,6 +486,16 @@ lemma df_step_param_intro:
   apply (simp add: assms(2) mono_GlobalNdet_FD_const) (* apply (subst (2) P_def) *)
   done
 
+
+(*This version is for parametrized process*)
+lemma df_step_param_cont_intro:
+  assumes P_def: "\<And> x. P\<cdot>x = Q\<cdot>x" "\<And> x. (GlobalNdet UNIV (\<lambda>x. P\<cdot>x))\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<cdot>x"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P\<cdot>n)"
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (subst P_def)  back
+  apply (simp add: assms(2) mono_GlobalNdet_FD_const) 
+  done
+term "\<And> x. (GlobalNdet UNIV (\<lambda>x. P\<cdot>x))\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<cdot>x"
 (*
 lemma df_step_param_intro':
   assumes P_def: "\<And> x. P x = Q x" "\<And> x. \<exists> y. (P y)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
@@ -1238,7 +1248,7 @@ lemma ex11_param:
   done
 
 (*ex11_param_step2_df_m is the same as ex11_step2_df_m*)
-(*
+
 lemma ex11_param_step2_df_m: 
   assumes P_def: \<open>\<And> i. P i  = e \<rightarrow>
     \<box>i\<in>{0..Suc (Suc (Suc 0))}.
@@ -1254,7 +1264,7 @@ lemma ex11_param_step2_df_m:
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
   apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
   done
-*)
+
 
 
 text\<open>The method for deadlock freedom of paramtrized normalized process\<close>

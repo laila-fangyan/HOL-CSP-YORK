@@ -1,4 +1,4 @@
-theory circus_theory_example1 
+theory circus_theory_example1_ddlf
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
 begin
@@ -37,8 +37,7 @@ subsection \<open> Model \<close>
 datatype NIDS_stm0 = 
 	NID_i0_stm0 | 
 	NID_s0_stm0 | 
-	NID_s1_stm0 |
-	NID_s2_stm0
+	NID_s1_stm0
 instantiation NIDS_stm0 :: discrete_cpo
 begin
 
@@ -120,7 +119,9 @@ datatype trans_event =
 "interrupt_s2_stm0"| 
 "enteredL_s2_stm0" |
 "enteredR_s2_stm0" 
-	
+
+
+
 fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
   where \<open>Trans_ex1\<cdot>n = 
 
@@ -128,9 +129,42 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
 	  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
 
- \<box>
-	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
 
+\<close>
+definition NID_stm0 :: "NIDS_stm0 set" where
+  "NID_stm0 = {NID_i0_stm0, NID_s0_stm0, NID_s1_stm0}"
+
+lemma Trans_ddlf:
+
+assumes P_def: \<open>\<And> n::NIDS_stm0. Trans_ex1\<cdot> n  =   
+    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
+\<close>
+
+shows \<open>deadlock_free (\<sqinter> n \<in> NIDS_stm0. Trans_ex1\<cdot>n) \<close>
+  apply (rule df_step_param_cont_intro[OF P_def])
+
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+ 
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
+
+  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+
+(*
+fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
+  where \<open>Trans_ex1\<cdot>n = 
+
+    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
 
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
@@ -141,13 +175,13 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
 	  \<box>
 	  (terminate \<rightarrow> Skip)
 \<close>
-
+*)
 lemma skip_seq: "(a \<rightarrow> Skip) \<^bold>; b\<rightarrow>P = a \<rightarrow>b\<rightarrow> P"
   by (simp add: write0_Seq)
 
 
 lemma "deadlock_free (Trans_ex1\<cdot>n)"
-  apply (rule df_step_intro[OF Trans_ex1.simps])  
+  apply (rule df_step_param_cont_intro[OF Trans_ex1.simps])  
   apply (simp add: biextchoic_normalization bi_extchoice_norm biextchoic_normalization_nguard read_Seq write_Seq write0_Seq)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
   oops
