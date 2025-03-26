@@ -468,7 +468,7 @@ lemma
   by (smt (verit) assms(1) assms(2) binops_proving_Mndetprefix_ref(2))*)
 
 
-(*df_step_intro does not cover index/prameterized process*)
+(*df_step_intro is not applicable to index/parametrized process*)
 lemma df_step_intro:
   assumes P_def: "P = Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q"
   shows "deadlock_free P"
@@ -477,6 +477,7 @@ lemma df_step_intro:
   apply (simp add: assms(2))
   done
 
+(*This version is for parametrized process*)
 lemma df_step_param_intro:
   assumes P_def: "\<And> x. P x = Q x" "\<And> x. (GlobalNdet UNIV P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
   shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
@@ -1195,7 +1196,7 @@ by (deadlock_free_normed P_def: P_def)
 
 thm no_step_refine
 
-
+(*20250326: We justified the euqivalence of RoboChart behaviour with the HOL-CSP model with state as paramter. Then, we need to update the proof into parametrized. this example proves a general deadlock free for any n. We do not use @term{\<And> in the conclusion}, instead we use @term{\<sqinter>}*)
 lemma inc_df_ex_aux:
   assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
   shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
@@ -1208,13 +1209,79 @@ lemma inc_df_ex_aux:
   apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)
   done
 
-lemma inc_df_ex_aux:
+lemma inc_df_ex_aux_specific:
   assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
   shows "deadlock_free (P 0)"
   by (meson UNIV_I assms deadlock_free_GlobalNdet_iff inc_df_ex_aux)
 
 
+lemma ex11_param: 
+  assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P (0)) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(2))) \<box> (terminate \<rightarrow> P(3)) )\<close> and 
+   \<open>b(0::nat) \<or> b(1)  \<or> b(2)  \<close>
+  shows\<open>deadlock_free (\<sqinter> n \<in> UNIV. P n) \<close>
+ apply (rule df_step_param_intro[OF P_def])
 
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+ 
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
+
+  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+(*line above equivalent to repeat 4 times of the following 3 lines
+  apply (rule order.trans)
+  apply (rule no_step_refine)
+  apply (auto intro: GlobalNdet_refine_FD)
+ 
+*)
+  done
+
+(*ex11_param_step2_df_m is the same as ex11_step2_df_m*)
+(*
+lemma ex11_param_step2_df_m: 
+  assumes P_def: \<open>\<And> i. P i  = e \<rightarrow>
+    \<box>i\<in>{0..Suc (Suc (Suc 0))}.
+       (if i \<le> Suc (Suc 0) then if i \<le> Suc 0 then if i = 0 then b 0 else b (Suc 0) else b 2 else True) \<^bold>&
+       (if i \<le> Suc (Suc 0) then if i \<le> Suc 0 then if i = 0 then a \<rightarrow> a \<rightarrow> P 0 else c \<rightarrow> a \<rightarrow> P 1 else d \<rightarrow> a \<rightarrow> P 2
+        else terminate \<rightarrow> P 3)\<close> and 
+   \<open>b(0::nat) \<or> b(1)  \<or> b(2)  \<close>
+ shows\<open>deadlock_free (\<sqinter> n \<in> UNIV. P n) \<close>
+  apply (rule df_step_param_intro[OF P_def])
+ (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
+  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+  done
+*)
+
+
+text\<open>The method for deadlock freedom of paramtrized normalized process\<close>
+method deadlock_free_normed_param uses P_def assms=
+  (rule df_step_param_intro[OF P_def]
+  , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
+, auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine
+, (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+)
+
+lemma ex11_param_step2_df_a: 
+  assumes P_def: \<open>\<And> i. P i  = e \<rightarrow>
+    \<box>i\<in>{0..Suc (Suc (Suc 0))}.
+       (if i \<le> Suc (Suc 0) then if i \<le> Suc 0 then if i = 0 then b 0 else b (Suc 0) else b 2 else True) \<^bold>&
+       (if i \<le> Suc (Suc 0) then if i \<le> Suc 0 then if i = 0 then a \<rightarrow> a \<rightarrow> P 0 else c \<rightarrow> a \<rightarrow> P 1 else d \<rightarrow> a \<rightarrow> P 2
+        else terminate \<rightarrow> P 3)\<close> and 
+   \<open>b(0::nat) \<or> b(1)  \<or> b(2)  \<close>
+ shows\<open>deadlock_free (\<sqinter> n \<in> UNIV. P n) \<close>
+  by (deadlock_free_normed_param P_def: P_def)
+
+
+ (*the line below is for non_param version
+ by (simp add: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
+*)
+
+(*not used anymore
 lemma ex11_no_para:
   assumes P_def: \<open>P =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P)) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P)) \<box> (terminate \<rightarrow> P) )\<close> and 
    \<open>b(0::nat) \<or> b(1)  \<or> b(2)  \<close>
@@ -1231,7 +1298,7 @@ lemma ex11_no_para:
   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3) generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
   done  
 
-
+*)
 text\<open>DF Skip\<close>
 find_theorems SKIP 
 

@@ -477,6 +477,22 @@ lemma df_step_intro:
   apply (simp add: assms(2))
   done
 
+lemma df_step_param_intro:
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. (GlobalNdet UNIV P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
+  apply (subst P_def)  back
+  apply (simp add: assms(2) mono_GlobalNdet_FD_const) (* apply (subst (2) P_def) *)
+  done
+
+(*
+lemma df_step_param_intro':
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. \<exists> y. (P y)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+*)
+
+
+
 lemma ndet_prefix_ext_choice:(*this is added for P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)) pattern: prefix of external choice*)
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
@@ -1176,6 +1192,27 @@ lemma ex3_reverify:
   assumes P_def: \<open>P = e\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P))\<close>
   shows \<open>deadlock_free P\<close>
 by (deadlock_free_normed P_def: P_def)
+
+thm no_step_refine
+
+
+lemma inc_df_ex_aux:
+  assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
+  shows "deadlock_free (\<sqinter> n \<in> UNIV. P n)"
+   (* Apply induction *)
+  apply (rule df_step_param_intro[OF P_def])
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3) generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
+  apply (rule order.trans)
+  apply (rule no_step_refine)
+  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)
+  done
+
+lemma inc_df_ex_aux:
+  assumes P_def: "\<And> i. P(i) = inc \<rightarrow> P (i + 1)"
+  shows "deadlock_free (P 0)"
+  by (meson UNIV_I assms deadlock_free_GlobalNdet_iff inc_df_ex_aux)
+
 
 
 lemma ex11_no_para:
