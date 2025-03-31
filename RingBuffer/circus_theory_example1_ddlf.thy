@@ -158,7 +158,7 @@ lemma SSTOP_refine:
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 
-lemma Trans_ddlf:
+lemma Trans_ex1_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1.simps])

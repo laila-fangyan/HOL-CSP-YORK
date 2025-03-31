@@ -10,7 +10,7 @@
  *************************************************************************************\<close>
 (*>*)
 
-theory GA_Trans_param
+theory GA_Trans_ZM
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
 begin
