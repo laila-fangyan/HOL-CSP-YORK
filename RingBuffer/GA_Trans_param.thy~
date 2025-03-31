@@ -10,7 +10,7 @@
  *************************************************************************************\<close>
 (*>*)
 
-theory GA_Trans_ZM
+theory GA_Trans_param
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
 begin
@@ -347,11 +347,14 @@ corollary \<open>deadlock_free (Trans'\<cdot>NID_i1)\<close>
 
 (*the complete version of Trans*)
 
-fixrec Trans :: "NIDS \<rightarrow> trans_event process"
-  where  \<open>Trans\<cdot>n =
-  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
+fixrec  SSTOP ::"trans_event process" and
+        Trans :: "NIDS \<rightarrow> trans_event process"
+        where 
+[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+[simp del] : \<open>Trans\<cdot>n =
+ SSTOP \<triangle>  (get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
   (
-  (n = NID_i1) \<^bold>& ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> Skip) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading))
+  (n = NID_i1) \<^bold>& ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip)) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading))
 
   \<box>
   (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)))))
@@ -370,7 +373,7 @@ fixrec Trans :: "NIDS \<rightarrow> trans_event process"
   ((interrupt \<rightarrow> (exit \<rightarrow> Skip)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> Skip)))
   \<box>
   (terminate \<rightarrow> Skip)
-) \<close>
+)) \<close>
 
 declare Trans.simps [simp del]
 
