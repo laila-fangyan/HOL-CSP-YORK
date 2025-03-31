@@ -358,7 +358,10 @@ actions  is "(mychan, unit) action" where
 	  Inactive_j1_GasAnalysis_stm_Chemical) "
 
 " Trans_GasAnalysis_stm_Chemical = 
-	(SSTOP \<triangle> (get_sts\<^bold>?sts \<rightarrow> (get_ins\<^bold>?ins \<rightarrow> (((((((((((internal__GasAnalysis_stm_Chemical\<^bold>.NID_i1_GasAnalysis_stm_Chemical \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip));; (SSTOP \<triangle> (set_anl\<^bold>!Front \<rightarrow> Skip))));; (enter_Reading_GasAnalysis_stm_Chemical \<rightarrow> Skip))
+
+	(SSTOP \<triangle> (get_sts\<^bold>?sts \<rightarrow> (get_ins\<^bold>?ins \<rightarrow>
+
+ (((((((((((internal__GasAnalysis_stm_Chemical\<^bold>.NID_i1_GasAnalysis_stm_Chemical \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip));; (SSTOP \<triangle> (set_anl\<^bold>!Front \<rightarrow> Skip))));; (enter_Reading_GasAnalysis_stm_Chemical \<rightarrow> Skip))
 	  \<box>
 	  ((gas__in\<^bold>.NID_Reading_GasAnalysis_stm_Chemical\<^bold>?gs \<rightarrow> (SSTOP \<triangle> (set_gs\<^bold>!gs \<rightarrow> Skip)));; ((SSTOP \<triangle> (exit_GasAnalysis_stm_Chemical \<rightarrow> Skip));; (SSTOP \<triangle> ((exited_GasAnalysis_stm_Chemical \<rightarrow> Skip);; (enter_Analysis_GasAnalysis_stm_Chemical \<rightarrow> Skip))))))
 	  \<box>
@@ -372,11 +375,16 @@ actions  is "(mychan, unit) action" where
 	  \<box>
 	  ((\<not>goreq((ins,thr))) \<^bold>& (((internal__GasAnalysis_stm_Chemical\<^bold>.NID_GasDetected_GasAnalysis_stm_Chemical \<rightarrow> Skip);; ((SSTOP \<triangle> (exit_GasAnalysis_stm_Chemical \<rightarrow> Skip));; (SSTOP \<triangle> ((exited_GasAnalysis_stm_Chemical \<rightarrow> ((SSTOP \<triangle> (get_gs\<^bold>?gs \<rightarrow> ((size((gs)) > 0) \<^bold>& ((SSTOP \<triangle> (set_anl\<^bold>!location((gs)) \<rightarrow> Skip))))));; (SSTOP \<triangle> (get_anl\<^bold>?anl \<rightarrow> (SSTOP \<triangle> (turn_out\<^bold>!anl \<rightarrow> Skip))))));; (enter_Reading_GasAnalysis_stm_Chemical \<rightarrow> Skip))))))))
 	  \<box>
-	  (share \<rightarrow> Skip));; Trans_GasAnalysis_stm_Chemical)
+	  (share \<rightarrow> Skip))
+                      ;; Trans_GasAnalysis_stm_Chemical)
+
+
 	  \<box>
 	  (((interrupt_GasAnalysis_stm_Chemical \<rightarrow> (SSTOP \<triangle> (exit_GasAnalysis_stm_Chemical \<rightarrow> Skip)));; (SSTOP \<triangle> (exited_GasAnalysis_stm_Chemical \<rightarrow> (terminate \<rightarrow> Skip))))
 	  \<box>
-	  (terminate \<rightarrow> Skip)))))) "
+	  (terminate \<rightarrow> Skip)))
+
+))) "
 
 " ncCoreBehaviour_GasAnalysis_stm_Chemical = 
 	((((composeNodes_GasAnalysis_stm_Chemical [ interrupt_i1_GasAnalysis_stm_Chemical \<mapsto> internal__GasAnalysis_stm_Chemical\<cdot>NID_i1_GasAnalysis_stm_Chemical,  
