@@ -121,7 +121,8 @@ datatype trans_event =
 "enteredR_s2_stm0" 
 
 fixrec  SSTOP ::"trans_event process" and
-Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
+Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process" and
+Trans_ex1'  :: "NIDS_stm0 \<rightarrow> trans_event process"
 where
 [simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
 [simp del] :\<open>Trans_ex1\<cdot>n = 
@@ -130,6 +131,19 @@ where
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0))))))
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))))
+\<close>|
+[simp del] :\<open>Trans_ex1'\<cdot>n = 
+    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1'\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1'\<cdot>NID_s1_stm0))))))
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1'\<cdot>NID_s0_stm0))))
+
+    
+\<box> 
+ ((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)))\<^bold>; (SSTOP \<triangle> (exited_stm0 \<rightarrow>   (terminate \<rightarrow> Skip))))
+	  \<box>
+	  (terminate \<rightarrow> Skip) 
 \<close>
 
 lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"
@@ -146,12 +160,16 @@ lemma SSTOP_refine:
 
 lemma Trans_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
+  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1.simps])
+  (* Normalisation *)
   apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  (* Simplify away the events and interrupt *)
    apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine)
+  (*discharge guards*)
   using NIDS_stm0.exhaust atLeast0_atMost_Suc apply auto[1]
   done
 
@@ -166,7 +184,7 @@ method deadlock_free_trans uses P_def assms=
 )
 
 
-lemma Trans_ddlf_a:
+lemma Trans_ddlf_auto:
  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
   by (deadlock_free_trans P_def: Trans_ex1.simps)
 
@@ -178,20 +196,13 @@ method normalization uses P_def =
   , simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
 
 lemma trans_norm:
-  assumes P_def: \<open> \<And>i. Trans_ex1\<cdot>i =  (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
-	  \<box>
-	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0))))))
-	  \<box>
-	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))))\<close>
-  shows
- \<open>Trans_ex1\<cdot>i =  \<box>i\<in>{0..Suc (Suc 0)}.
+ \<open>Trans_ex1\<cdot>n =  \<box>i\<in>{0..Suc (Suc 0)}.
             (if i \<le> Suc 0 then if i = 0 then n = NID_i0_stm0 else n = NID_s0_stm0 else n = NID_s1_stm0) \<^bold>&
             (if i \<le> Suc 0
              then if i = 0 then internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)
                   else a__in\<^bold>.NID_s0_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s1_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s1_stm0))
              else b__in\<^bold>.NID_s1_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))  \<close>
- 
-  by (normalization P_def: P_def)
+  by (normalization P_def: Trans_ex1.simps)
 
 
 
@@ -205,7 +216,7 @@ method deadlock_free_trans_step2 uses P_def assms=
 
 
 lemma Trans_ex1_step2_df_a: 
-  assumes P_def: \<open>\<And> i. Trans_ex1\<cdot>i  = \<box>i\<in>{0..Suc (Suc 0)}.
+  assumes P_def: \<open>\<And> n. Trans_ex1\<cdot>n  = \<box>i\<in>{0..Suc (Suc 0)}.
             (if i \<le> Suc 0 then if i = 0 then n = NID_i0_stm0 else n = NID_s0_stm0 else n = NID_s1_stm0) \<^bold>&
             (if i \<le> Suc 0
              then if i = 0 then internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)
@@ -216,13 +227,38 @@ lemma Trans_ex1_step2_df_a:
 
 
 
+lemma df_Skip: 
+  assumes \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P\<close> 
+  shows \<open>deadlock_free (P \<box> (a\<rightarrow> Skip))\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+
+lemma skip_refine:
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Skip\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+lemma Trans_ex1'_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n) \<close>
+  (* Apply induction *)
+  apply (rule df_step_param_intro[OF Trans_ex1'.simps])
+  (* Normalisation *)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+  (* Simplify away the events and interrupt *)
+   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine skip_refine)
+ (*for ex1', the guards do not need to be discharged because now we have two extra deterministic choices which are always enabled*)
+  done
 
 (*
 lemma [simp]: "(P \<triangle> Q) \<^bold>; R = (P \<^bold>; R) \<triangle> (Q \<^bold>; R)"
 *)
 
 
-(* Trans_stm0 = 	(((((((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip);; (enter_s0_stm0 \<rightarrow> Skip))
+(*ORIGINAL IsaCircus:
+ Trans_stm0 = 	
+(((((((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip);; (enter_s0_stm0 \<rightarrow> Skip))
 	  \<box>
 	  ((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip);; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip));; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip);; (enter_s1_stm0 \<rightarrow> Skip))))))
 	  \<box>
@@ -230,9 +266,9 @@ lemma [simp]: "(P \<triangle> Q) \<^bold>; R = (P \<^bold>; R) \<triangle> (Q \<
 	  \<box>
 	  (share \<rightarrow> Skip));; Trans_stm0)
 	  \<box>
-	  (((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)));; (SSTOP \<triangle> (exited_stm0 \<rightarrow> (terminate \<rightarrow> Skip))))
+	  ( ((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)));; (SSTOP \<triangle> (exited_stm0 \<rightarrow> (terminate \<rightarrow> Skip))))
 	  \<box>
-	  (terminate \<rightarrow> Skip)))*)
+	  (terminate \<rightarrow> Skip) ))*)
 
 
 (* this is the simpliest proved version with no interrupt or skip at the end
@@ -266,25 +302,6 @@ lemma Trans_ddlf:
   done
  *)
 
-
-(* this version has no interrupt but skip at the end
-fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
-  where \<open>Trans_ex1\<cdot>n = 
-
-    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
-	  \<box>
-	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
-
-	  \<box>
-	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
-	  \<box>
-	  (share \<rightarrow> Skip)
-	  \<box>
-	  ((interrupt_stm0 \<rightarrow>  (exit_stm0 \<rightarrow> Skip))\<^bold>;  (exited_stm0 \<rightarrow> (terminate \<rightarrow> Skip)))
-	  \<box>
-	  (terminate \<rightarrow> Skip)
-\<close>
-*)
 end
 
 end
