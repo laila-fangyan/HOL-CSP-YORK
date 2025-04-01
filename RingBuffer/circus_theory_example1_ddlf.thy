@@ -1,6 +1,6 @@
 theory circus_theory_example1_ddlf
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
+          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
 begin
 
 
@@ -120,42 +120,61 @@ datatype trans_event =
 "enteredL_s2_stm0" |
 "enteredR_s2_stm0" 
 
-fixrec  SSTOP ::"trans_event process" and
-Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process" and
-Trans_ex1'  :: "NIDS_stm0 \<rightarrow> trans_event process"
+fixrec  SSTOP       :: "trans_event process"              and
+        Trans_ex1   :: "NIDS_stm0 \<rightarrow> trans_event process" and
+        Trans_ex1'  :: "NIDS_stm0 \<rightarrow> trans_event process" and
+        Trans_ex1'' :: "NIDS_stm0 \<rightarrow> trans_event process"
 where
 [simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+
 [simp del] :\<open>Trans_ex1\<cdot>n = 
     (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
 	  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0))))))
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))))
-\<close>|
+ \<close>|
+
 [simp del] :\<open>Trans_ex1'\<cdot>n = 
     (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1'\<cdot>NID_s0_stm0))
 	  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1'\<cdot>NID_s1_stm0))))))
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1'\<cdot>NID_s0_stm0))))
+    \<box>
+	  ((share \<rightarrow> Skip)\<^bold>; Trans_ex1'\<cdot>n)
+\<close>|
 
-    
-\<box> 
- ((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)))\<^bold>; (SSTOP \<triangle> (exited_stm0 \<rightarrow>   (terminate \<rightarrow> Skip))))
+[simp del] :\<open>Trans_ex1''\<cdot>n = 
+    (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1''\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>;  ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1''\<cdot>NID_s1_stm0))))))
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  (exit_stm0 \<rightarrow> Skip))  \<^bold>; ( SSTOP \<triangle>((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1''\<cdot>NID_s0_stm0))))
+    \<box>
+	  ((share \<rightarrow> Skip)\<^bold>; Trans_ex1''\<cdot>n)
+    \<box> 
+    ((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)))\<^bold>; (SSTOP \<triangle> (exited_stm0 \<rightarrow>   (terminate \<rightarrow> Skip))))
 	  \<box>
 	  (terminate \<rightarrow> Skip) 
 \<close>
-
+(*
 lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"
-  sorry
+  sorry*)
 
-lemma [simp]: "SSTOP \<^bold>; P = SSTOP"
+lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 lemma SSTOP_refine:
   assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D SSTOP \<triangle> P"
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans_ex1.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
+
+lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
+  by (simp add: AfterExt.deadlock_free_imp_not_initial_tick ex_Skip inf_commute)
 
 
 lemma Trans_ex1_ddlf:
@@ -166,13 +185,38 @@ lemma Trans_ex1_ddlf:
   apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-  (* Simplify away the events and interrupt *)
+
+  (* Simplify away the events in the cases not inclucing interrupt *)
    apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine)
-  (*discharge guards*)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
+  (*move the goal for guards to the last*)
+    defer
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
+  (*the 4 lines below are replaced by the line above
+    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq )
+    apply (simp add: GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)
+
+    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq )
+    apply (simp add: GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)
+  *)
+
+  (*discharge the guards*)
   using NIDS_stm0.exhaust atLeast0_atMost_Suc apply auto[1]
   done
 
+
+
+lemma Trans_ex1_ddlf_Shorter_version:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
+  (* Apply induction *)
+  apply (rule df_step_param_intro[OF Trans_ex1.simps])
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+  
+thm deadlock_free_write0_iff
+thm ex_Skip
+
+thm non_deadlock_free_SKIP
 
 method deadlock_free_trans uses P_def assms=
   (rule df_step_param_intro[OF P_def]
@@ -241,15 +285,17 @@ lemma Trans_ex1'_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n) \<close>
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1'.simps])
-  (* Normalisation *)
-  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
-  (* Rewrite the goal to allow multiple events *)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-  (* Simplify away the events and interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine skip_refine)
- (*for ex1', the guards do not need to be discharged because now we have two extra deterministic choices which are always enabled*)
-  done
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+thm ex_Skip
+
+
+lemma Trans_ex1''_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n) \<close>
+  (* Apply induction *)
+  apply (rule df_step_param_intro[OF Trans_ex1''.simps])
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
 
 (*
 lemma [simp]: "(P \<triangle> Q) \<^bold>; R = (P \<^bold>; R) \<triangle> (Q \<^bold>; R)"

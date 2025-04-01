@@ -1,6 +1,6 @@
 theory circus_theory_example1_add_s2_ddl
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation circus_theory_example1_ddlf
+          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
 begin
 
 
@@ -129,25 +129,32 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
     (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
 	  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
  \<box>
 	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s2_stm0)))))
+
+
 	  \<box>
 	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
 
-
-
-	((((( (n = NID_i0_stm0) \<^bold>& ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Skip))
-	  \<box>
-	 (n = NID_s0_stm0) \<^bold>&  ((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow> Skip))))))
-	  \<box>
-	  ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip);; (enter_s0_stm0 \<rightarrow> Skip))))))
-	  \<box>
-	  (share \<rightarrow> Skip))\<^bold>; Trans_stm0\<cdot>n)
-	  \<box>
-	  (((interrupt_stm0 \<rightarrow> (SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip)));; (SSTOP \<triangle> (exited_stm0 \<rightarrow> (terminate \<rightarrow> Skip))))
-	  \<box>
-	  (terminate \<rightarrow> Skip)))
 \<close>
+
+lemma Trans_norm:
+  assumes P_def: \<open>\<And> n::NIDS_stm0. Trans_ex1 n  =   (n = NID_i0_stm0) \<^bold>&  ((internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0))
+	  \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s1_stm0)))))
+
+ \<box>
+	  ((n = NID_s0_stm0) \<^bold>& (((c__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip) \<^bold>;( (exit_stm0 \<rightarrow> Skip))\<^bold>;  ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s2_stm0 \<rightarrow>  Trans_ex1\<cdot>NID_s2_stm0)))))
+
+
+	  \<box>
+	  (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ( (exit_stm0 \<rightarrow> Skip))  \<^bold>; ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))
+\<close>
+
+shows \<open> ( Trans_ex1 (n::NIDS_stm0) )  = undefined \<close>
+  by (normalization P_def: P_def)
+ 
 
 (*
 fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
@@ -175,6 +182,11 @@ lemma skip_seq: "(a \<rightarrow> Skip) \<^bold>; b\<rightarrow>P = a \<rightarr
   by (simp add: write0_Seq)
 
 
+lemma "deadlock_free (Trans_ex1\<cdot>n)"
+  apply (rule df_step_intro[OF Trans_ex1.simps])  
+  apply (simp add: biextchoic_normalization bi_extchoice_norm biextchoic_normalization_nguard read_Seq write_Seq write0_Seq)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+  oops
 
 
 (*Trans_stm0 = 
@@ -190,8 +202,6 @@ lemma skip_seq: "(a \<rightarrow> Skip) \<^bold>; b\<rightarrow>P = a \<rightarr
 	  \<box>
 	  (terminate \<rightarrow> Skip)))*)
 end
-  find_theorems "?P \<box> ?Q" "?P\<^bold>;?R"
-lemma \<open>(P \<box> Q)\<^bold>;R = (P\<^bold>;R) \<box> (Q\<^bold>;R)\<close>
 
 end
 

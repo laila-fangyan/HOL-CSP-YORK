@@ -347,34 +347,30 @@ corollary \<open>deadlock_free (Trans'\<cdot>NID_i1)\<close>
 
 (*the complete version of Trans*)
 
-fixrec  SSTOP ::"trans_event process" and
-        Trans :: "NIDS \<rightarrow> trans_event process"
-        where 
-[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
-[simp del] : \<open>Trans\<cdot>n =
- SSTOP \<triangle>  (get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
+fixrec Trans :: "NIDS \<rightarrow> trans_event process"
+  where  \<open>Trans\<cdot>n =
+  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
   (
-  (n = NID_i1) \<^bold>& ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip)) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading))
+  (n = NID_i1) \<^bold>& ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> Skip) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading))
 
   \<box>
-  (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle>  (exit  \<rightarrow> Skip))\<^bold>; ( SSTOP \<triangle> ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)))))
+  (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Trans\<cdot>NID_Reading)))))
   \<box>
-  (((n = NID_Analysis) \<and> sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle>  (exit  \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle>  ((exited  \<rightarrow> (SSTOP \<triangle>  (resume_out \<rightarrow> Skip)))\<^bold>; (enter_NoGas  \<rightarrow>  Trans\<cdot>NID_NoGas)))))))
+  (((n = NID_Analysis) \<and> sts = noGas) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> ( (resume_out \<rightarrow> Skip)))\<^bold>; (enter_NoGas  \<rightarrow>  Trans\<cdot>NID_NoGas)))))))
   \<box>
-  (((n = NID_Analysis) \<and> sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle>  (exit \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle>  ((exited \<rightarrow> Skip)\<^bold>; (enter_GasDetected \<rightarrow> Trans\<cdot>NID_GasDetected   )))))))
+  (((n = NID_Analysis) \<and> sts = gasD) \<^bold>& (((internal__chan\<^bold>.(NID_Analysis) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> Skip)\<^bold>; (enter_GasDetected \<rightarrow> Trans\<cdot>NID_GasDetected   )))))))
   \<box>
- (((n = NID_GasDetected) \<and> goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle>  (exit \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle>  ((exited \<rightarrow> ( (stop_out \<rightarrow> Skip)))\<^bold>; (enter_j1 \<rightarrow> Trans\<cdot>NID_j1 )))))))
+ (((n = NID_GasDetected) \<and> goreq(ins,thr)) \<^bold>& (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( (exit \<rightarrow> Skip))\<^bold>; ( ((exited \<rightarrow> ( (stop_out \<rightarrow> Skip)))\<^bold>; (enter_j1 \<rightarrow> Trans\<cdot>NID_j1 )))))))
   \<box>
-  (((n = NID_GasDetected) \<and> \<not>goreq(ins,thr)) \<^bold>& ( (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle> ( exit \<rightarrow> Skip)\<^bold>; (SSTOP \<triangle>  ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> Skip)))) \<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> Skip)))))\<^bold>; (enter_Reading \<rightarrow> Trans\<cdot>NID_Reading ))))))))
+  (((n = NID_GasDetected) \<and> \<not>goreq(ins,thr)) \<^bold>& ( (((internal__chan\<^bold>.(NID_GasDetected) \<rightarrow> Skip)\<^bold>; (( exit \<rightarrow> Skip)\<^bold>; ( ((exited \<rightarrow> (( (get_gs\<^bold>?(gs) \<rightarrow> ((size(gs) > 0) \<^bold>&  (set_anl\<^bold>!location(gs) \<rightarrow> Skip)))) \<^bold>;  (get_anl\<^bold>?(anl) \<rightarrow> ( (turn_out\<^bold>!anl \<rightarrow> Skip)))))\<^bold>; (enter_Reading \<rightarrow> Trans\<cdot>NID_Reading ))))))))
  \<box>
-   ((n = NID_Reading) \<^bold>& ((gas__in\<^bold>?(gs) \<rightarrow> (SSTOP \<triangle> (set_gs\<^bold>!gs \<rightarrow> Skip))) \<^bold>; ((SSTOP \<triangle> (exit  \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> (( (exited  \<rightarrow> Skip) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis)))))))
+   ((n = NID_Reading) \<^bold>& ((gas__in\<^bold>?(gs) \<rightarrow> (set_gs\<^bold>!gs \<rightarrow> Skip)) \<^bold>; ((exit  \<rightarrow> Skip) \<^bold>; ( (exited  \<rightarrow> Skip) \<^bold>; (enter_Analysis  \<rightarrow>  Trans\<cdot>NID_Analysis)))))
  \<box>
- (share \<rightarrow> Trans\<cdot>n)
-\<box>
+
   ((interrupt \<rightarrow> (exit \<rightarrow> Skip)) \<^bold>; (exited \<rightarrow> (terminate \<rightarrow> Skip)))
   \<box>
   (terminate \<rightarrow> Skip)
-)) \<close>
+) \<close>
 
 declare Trans.simps [simp del]
 

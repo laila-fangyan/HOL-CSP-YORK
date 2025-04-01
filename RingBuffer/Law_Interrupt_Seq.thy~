@@ -1,0 +1,115 @@
+theory Law_Interrupt_Seq
+  imports "HOL-CSP_OpSem.initials"
+begin
+
+
+(* not used here *)
+lemma non_terminating_is_empty_ticks_of : \<open>non_terminating P \<longleftrightarrow> \<checkmark>s(P) = {}\<close>
+  by (simp add: non_terminating_is_right tickFree_traces_iff_empty_ticks_of)
+
+
+
+\<comment> \<open>Counter example (without parameterized termination)\<close>
+
+lemma \<open>((0 :: nat) \<rightarrow> STOP) \<triangle> Skip \<^bold>; STOP \<noteq> (0 \<rightarrow> STOP) \<triangle> (Skip \<^bold>; STOP)\<close>
+      apply simp
+  apply (simp add: Process_eq_spec Seq_projs write0_projs Interrupt_projs STOP_projs SKIP_projs)
+  apply (simp add: set_eq_iff)
+  by (metis insertI1 list.discI tickFree_Nil)
+
+lemma \<open>non_terminating ((0 :: nat) \<rightarrow> STOP)\<close>
+  by (simp add: non_terminating_is_empty_ticks_of ticks_of_write0)
+
+
+\<comment> \<open>Weaker version, but hopefully sufficient\<close>
+
+lemma non_terminating_Interrupt_Seq :
+  \<open>(P \<triangle> Q) \<^bold>; R = P \<triangle> (Q \<^bold>; R)\<close> (is \<open>?lhs = ?rhs\<close>)
+  if \<open>non_terminating P\<close> and \<open>Q\<^sup>0 \<inter> range tick = {}\<close>
+proof -
+  have non_ter [simp] : \<open>t @ [\<checkmark>(r)] \<in> \<T> P \<longleftrightarrow> False\<close> for t r
+    by (metis \<open>non_terminating P\<close> non_terminating_is_right non_tickFree_tick tickFree_append_iff)
+  have not_tick_init : \<open>[\<checkmark>(r)] \<in> \<T> Q \<longleftrightarrow> False\<close> for r
+    by (meson disjoint_iff initials_memI rangeI \<open>Q\<^sup>0 \<inter> range tick = {}\<close>)
+  show \<open>?lhs = ?rhs\<close>
+  proof (rule Process_eq_optimizedI)
+    fix t assume \<open>t \<in> \<D> ?lhs\<close>
+    then consider \<open>t \<in> \<D> P\<close> | u v where \<open>t = u @ v\<close> \<open>u \<in> \<T> P\<close> \<open>tF u\<close> \<open>v \<in> \<D> Q\<close>
+      | u v r u1 u2 where \<open>t = u @ v\<close> \<open>u @ [\<checkmark>(r)] = u1 @ u2\<close> \<open>u1 \<in> \<T> P\<close> \<open>tF u1\<close> \<open>u2 \<in> \<T> Q\<close> \<open>v \<in> \<D> R\<close>
+      by (auto simp add: D_Seq Interrupt_projs)
+    thus \<open>t \<in> \<D> ?rhs\<close>
+    proof cases
+      show \<open>t \<in> \<D> P \<Longrightarrow> t \<in> \<D> ?rhs\<close> by (simp add: D_Seq D_Interrupt)
+    next
+      show \<open>t = u @ v \<Longrightarrow> u \<in> \<T> P \<Longrightarrow> tF u \<Longrightarrow> v \<in> \<D> Q \<Longrightarrow> t \<in> \<D> ?rhs\<close> for u v
+        by (auto simp add: D_Interrupt D_Seq)
+    next
+      fix u v r u1 u2 assume \<open>t = u @ v\<close> \<open>u @ [\<checkmark>(r)] = u1 @ u2\<close>
+        \<open>u1 \<in> \<T> P\<close> \<open>tF u1\<close> \<open>u2 \<in> \<T> Q\<close> \<open>v \<in> \<D> R\<close>
+      from this(2, 4, 5) obtain u2'
+        where \<open>u = u1 @ u2'\<close> \<open>u2 = u2' @ [\<checkmark>(r)]\<close>
+        by (metis (no_types) T_nonTickFree_imp_decomp append.assoc
+            append1_eq_conv non_tickFree_tick tickFree_append_iff)
+      with \<open>tF u1\<close> \<open>u1 \<in> \<T> P\<close> \<open>u2 \<in> \<T> Q\<close> \<open>v \<in> \<D> R\<close> show \<open>t \<in> \<D> ?rhs\<close>
+        by (simp add: \<open>t = u @ v\<close> D_Seq D_Interrupt) blast
+    qed
+  next
+    show \<open>t \<in> \<D> ?rhs \<Longrightarrow> t \<in> \<D> ?lhs\<close> for t
+      by (simp add: Interrupt_projs Seq_projs) (metis append_assoc)
+  next
+    fix t X assume \<open>(t, X) \<in> \<F> ?lhs\<close> \<open>t \<notin> \<D> ?lhs\<close>
+    then consider \<open>(t, X \<union> range tick) \<in> \<F> (P \<triangle> Q)\<close> \<open>tF t\<close>
+      | u r v where \<open>t = u @ v\<close> \<open>u @ [\<checkmark>(r)] \<in> \<T> (P \<triangle> Q)\<close> \<open>(v, X) \<in> \<F> R\<close>
+      by (auto simp add: Seq_projs)
+    thus \<open>(t, X) \<in> \<F> ?rhs\<close>
+    proof cases
+      assume \<open>(t, X \<union> range tick) \<in> \<F> (P \<triangle> Q)\<close> \<open>tF t\<close>
+      with \<open>t \<notin> \<D> ?lhs\<close> consider \<open>(t, X \<union> range tick) \<in> \<F> P\<close> \<open>tF t\<close> \<open>([], X \<union> range tick) \<in> \<F> Q\<close>
+        | t1 t2 where \<open>t = t1 @ t2\<close> \<open>t1 \<in> \<T> P\<close> \<open>tF t1\<close> \<open>(t2, X \<union> range tick) \<in> \<F> Q\<close> \<open>t2 \<noteq> []\<close>
+        by (auto simp add: Interrupt_projs D_Seq)
+      thus \<open>(t, X) \<in> \<F> ?rhs\<close>
+      proof cases
+        show \<open>\<lbrakk>(t, X \<union> range tick) \<in> \<F> P; tF t; ([], X \<union> range tick) \<in> \<F> Q\<rbrakk>
+              \<Longrightarrow> (t, X) \<in> \<F> ?rhs\<close>
+          by (auto simp add: F_Interrupt F_Seq intro: is_processT4)
+      next
+        show \<open>\<lbrakk>t = t1 @ t2; t1 \<in> \<T> P; tF t1; (t2, X \<union> range tick) \<in> \<F> Q; t2 \<noteq> []\<rbrakk>
+              \<Longrightarrow> (t, X) \<in> \<F> ?rhs\<close> for t1 t2
+          by (use \<open>tF t\<close> in \<open>auto simp add: F_Interrupt F_Seq\<close>)
+      qed
+    next
+      fix u r v assume \<open>t = u @ v\<close> \<open>u @ [\<checkmark>(r)] \<in> \<T> (P \<triangle> Q)\<close> \<open>(v, X) \<in> \<F> R\<close>
+      then obtain u1 u2 where \<open>u @ [\<checkmark>(r)] = u1 @ u2\<close> \<open>u1 \<in> \<T> P\<close> \<open>tF u1\<close> \<open>u2 \<in> \<T> Q\<close>
+        by (auto simp add: T_Interrupt)
+      from \<open>u @ [\<checkmark>(r)] = u1 @ u2\<close> \<open>u1 \<in> \<T> P\<close> obtain u2'
+        where \<open>u2 = u2' @ [\<checkmark>(r)]\<close> \<open>u = u1 @ u2'\<close>
+        by (metis append.right_neutral append_butlast_last_id
+            butlast_append butlast_snoc last_appendR last_snoc non_ter)
+      thus \<open>(t, X) \<in> \<F> ?rhs\<close>
+        apply (simp add: F_Interrupt \<open>t = u @ v\<close> Seq_projs)
+        by (metis Nil_is_append_conv \<open>(v, X) \<in> \<F> R\<close> \<open>tF u1\<close> \<open>u @ [\<checkmark>(r)] = u1 @ u2\<close> \<open>u1 \<in> \<T> P\<close> \<open>u2 \<in> \<T> Q\<close>
+            append.right_neutral not_tick_init same_append_eq)
+    qed
+  next
+    fix t X assume \<open>(t, X) \<in> \<F> ?rhs\<close> \<open>t \<notin> \<D> ?rhs\<close>
+    then consider \<open>(t, X) \<in> \<F> P\<close> \<open>tF t\<close> \<open>([], X) \<in> \<F> (Q \<^bold>; R)\<close>
+      | u v where \<open>t = u @ v\<close> \<open>u \<in> \<T> P\<close> \<open>tF u\<close> \<open>(v, X) \<in> \<F> (Q \<^bold>; R)\<close> \<open>v \<noteq> []\<close>
+      apply (simp add: Interrupt_projs T_Seq Cons_eq_append_conv)
+      by (smt (verit, best) D_T is_processT3_TR_append not_tick_init self_append_conv2)
+    thus \<open>(t, X) \<in> \<F> ?lhs\<close>
+    proof cases
+      show \<open>(t, X) \<in> \<F> P \<Longrightarrow> tF t \<Longrightarrow> ([], X) \<in> \<F> (Q \<^bold>; R) \<Longrightarrow> (t, X) \<in> \<F> ?lhs\<close>
+        apply (simp add: F_Seq F_Interrupt)
+        by (metis (mono_tags, lifting) F_T append.right_neutral f_inv_into_f is_processT5 non_ter
+            not_tick_init)
+    next
+      show \<open>t = u @ v \<Longrightarrow> u \<in> \<T> P \<Longrightarrow> tF u \<Longrightarrow> (v, X) \<in> \<F> (Q \<^bold>; R) \<Longrightarrow> v \<noteq> [] \<Longrightarrow> (t, X) \<in> \<F> ?lhs\<close> for u v
+        apply (simp add: F_Seq Interrupt_projs)
+        by (smt (verit, best) append_assoc)
+    qed
+  qed
+qed
+
+
+
+end
