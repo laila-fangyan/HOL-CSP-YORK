@@ -12,7 +12,7 @@
 
 theory GA_Trans_param
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation
+          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation circus_theory_example1_ddlf
 begin
 
 \<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
@@ -100,6 +100,7 @@ locale Trans =
   fixes angle :: "nat \<Rightarrow> Angle"
 
   fixes thr:: "Intensity"
+ 
 
 begin
 
@@ -132,10 +133,13 @@ datatype trans_event =
 "turn_out" "Angle" |
 "stop_in" |
 "stop_out" |
-"gas__in" " (GasSensor list)" | (*gas__in type changed to GasSensor List, the NID is hidden because 1) the source node is explicit now, 2) the multi-prefix is not implemented, thus 'gas__in\<^bold>.(NID_Reading)\<^bold>?(gs)' is not supported*)
+
+"gas__in" " (GasSensor list)" | 
+(*gas__in type changed to GasSensor List, the NID is hidden because 1) the source node is explicit now, 2) the multi-prefix is not implemented, thus 'gas__in\<^bold>.(NID_Reading)\<^bold>?(gs)' is not supported*)
 (*"gas__in" "NIDS \<times> (GasSensor list)" |*)
 (*"gas__in" "NIDS \<Rightarrow> GasSensor list \<Rightarrow> trans_event"|
 *)
+
 "resume__in" "NIDS" |
 "turn__in" "NIDS \<times> Angle" |
 "stop__in" "NIDS" |
@@ -152,29 +156,57 @@ find_theorems GlobalDet
 find_theorems " ?P \<box> ?Q"
 thm Global_Deterministic_Choice.GlobalDet_unit
 
-lemma Push_in_prefix : \<open>a \<rightarrow> (P \<box> Q) = (a \<rightarrow> P) \<box> (a \<rightarrow> Q)\<close>
-  sorry
-
 lemma skip_seq: "(a \<rightarrow> Skip) \<^bold>; P = a \<rightarrow> P"
   by (simp add: write0_Seq)
-
-
-(*
-fixrec Trans' :: "NIDS \<rightarrow> trans_event process"
-  where  \<open>Trans'\<cdot>n =
-  get_sts\<^bold>?(sts) \<rightarrow> get_ins\<^bold>?(ins) \<rightarrow> 
-  (
-  (n = NID_i1) \<^bold>& ((internal__chan\<^bold>.(NID_i1) \<rightarrow> ((set_gs\<^bold>![] \<rightarrow> Skip) \<^bold>; (set_anl\<^bold>!Front \<rightarrow> Skip))) \<^bold>; (enter_Reading  \<rightarrow> Trans'\<cdot>NID_Reading))
-
-  \<box>
-  (n = NID_NoGas) \<^bold>&  ((internal__chan\<^bold>.(NID_NoGas ) \<rightarrow> Skip) \<^bold>; ((exit  \<rightarrow> Skip)\<^bold>; ( ((exited  \<rightarrow> Skip)\<^bold>; (enter_Reading  \<rightarrow> Trans'\<cdot>NID_Reading)))))
-\<box>
-  ((n = NID_Analysis) \<and> (sts = noGas)) \<^bold>& ((((internal__chan\<^bold>.(NID_Analysis ) \<rightarrow> Skip)\<^bold>; (( (exit  \<rightarrow> Skip))\<^bold>; ( ((exited  \<rightarrow> ( resume_out \<rightarrow> Skip) ) \<^bold>; (enter_NoGas  \<rightarrow>  Trans'\<cdot>NID_NoGas)))))))
- ) \<close>
-
-
-
-declare Trans'.simps [simp del]
+fixrec SSTOP :: "trans_event process"        and
+       Trans_GA :: "NIDS \<rightarrow> trans_event process"
+where  
+[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+[simp del] :\<open>Trans_GA\<cdot>n =
+	(SSTOP \<triangle> (get_sts\<^bold>?sts \<rightarrow> (get_ins\<^bold>?ins \<rightarrow> (
+    ((((((((
+    (n=NID_i1) \<^bold>&  ((internal__chan\<^bold>.NID_i1 \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> (set_anl\<^bold>!Front \<rightarrow> Skip)))) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))
+	  )
+	  \<box>
+	  (n = NID_NoGas) \<^bold>& ((internal__chan\<^bold>.NID_NoGas \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> Skip) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))))))
+	  \<box>
+	  (((n = NID_Analysis) \<and> (sts = noGas)) \<^bold>& (((internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> (SSTOP \<triangle> (resume_out \<rightarrow> Skip))) \<^bold>; (enter_NoGas \<rightarrow> Trans_GA\<cdot>NID_NoGas))))))))
+	  \<box>
+	  (((n = NID_Analysis) \<and> (sts = gasD) )\<^bold>& (((internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> Skip) \<^bold>; (enter_GasDetected \<rightarrow> Trans_GA\<cdot>NID_GasDetected))))))))
+	  \<box>
+	  (((n = NID_GasDetected) \<and> goreq((ins,thr))) \<^bold>& (((internal__chan\<^bold>.NID_GasDetected \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> (SSTOP \<triangle> (stop_out \<rightarrow> Skip))) \<^bold>; (enter_j1 \<rightarrow> Trans_GA\<cdot>NID_j1))))))))
+	  \<box>
+	  (((n = NID_GasDetected) \<and> (\<not>goreq((ins,thr)))) \<^bold>& (((internal__chan\<^bold>.NID_GasDetected \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> ((SSTOP \<triangle> (get_gs\<^bold>?gs \<rightarrow> ((size((gs)) > 0) \<^bold>& ((SSTOP \<triangle> (set_anl\<^bold>!location((gs)) \<rightarrow> Skip)))))) \<^bold>; (SSTOP \<triangle> (get_anl\<^bold>?anl \<rightarrow> (SSTOP \<triangle> (turn_out\<^bold>!anl \<rightarrow> Skip)))))) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))))))))
+	  \<box>
+	  (share \<rightarrow> Trans_GA\<cdot>n)) )
+	  \<box>
+	  (((interrupt \<rightarrow> (SSTOP \<triangle> (exit \<rightarrow> Skip))) \<^bold>; (SSTOP \<triangle> (exited \<rightarrow> (terminate \<rightarrow> Skip))))
+	  \<box>
+	  (terminate \<rightarrow> Skip)))))) \<close>
+(* this is the complete version, but with issue in gas__in\<^bold>.NID_Reading?gs
+[simp del] :\<open>Trans_GA\<cdot>n =
+	(SSTOP \<triangle> (get_sts\<^bold>?sts \<rightarrow> (get_ins\<^bold>?ins \<rightarrow> (
+    ((((((((
+    (n=NID_i1) \<^bold>&  ((internal__chan\<^bold>.NID_i1 \<rightarrow> ((SSTOP \<triangle> (set_gs\<^bold>![] \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> (set_anl\<^bold>!Front \<rightarrow> Skip)))) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))
+	  \<box>
+	  (n = NID_Reading) \<^bold>& ((gas__in\<^bold>.NID_Reading?gs \<rightarrow> (SSTOP \<triangle> (set_gs\<^bold>!gs \<rightarrow> Skip))) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> Skip) \<^bold>; (enter_Analysis \<rightarrow> Trans_GA\<cdot>NID_Analysis))))))
+	  \<box>
+	  (n = NID_NoGas) \<^bold>& ((internal__chan\<^bold>.NID_NoGas \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> Skip) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))))))
+	  \<box>
+	  (((n = NID_Analysis) \<and> (sts = noGas)) \<^bold>& (((internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> (SSTOP \<triangle> (resume_out \<rightarrow> Skip))) \<^bold>; (enter_NoGas \<rightarrow> Trans_GA\<cdot>NID_NoGas))))))))
+	  \<box>
+	  (((n = NID_Analysis) \<and> (sts = gasD) )\<^bold>& (((internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> Skip) \<^bold>; (enter_GasDetected \<rightarrow> Trans_GA\<cdot>NID_GasDetected))))))))
+	  \<box>
+	  (((n = NID_GasDetected) \<and> goreq((ins,thr))) \<^bold>& (((internal__chan\<^bold>.NID_GasDetected \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> (SSTOP \<triangle> (stop_out \<rightarrow> Skip))) \<^bold>; (enter_j1 \<rightarrow> Trans_GA\<cdot>NID_j1))))))))
+	  \<box>
+	  (((n = NID_GasDetected) \<and> (\<not>goreq((ins,thr)))) \<^bold>& (((internal__chan\<^bold>.NID_GasDetected \<rightarrow> Skip) \<^bold>; ((SSTOP \<triangle> (exit \<rightarrow> Skip)) \<^bold>; (SSTOP \<triangle> ((exited \<rightarrow> ((SSTOP \<triangle> (get_gs\<^bold>?gs \<rightarrow> ((size((gs)) > 0) \<^bold>& ((SSTOP \<triangle> (set_anl\<^bold>!location((gs)) \<rightarrow> Skip)))))) \<^bold>; (SSTOP \<triangle> (get_anl\<^bold>?anl \<rightarrow> (SSTOP \<triangle> (turn_out\<^bold>!anl \<rightarrow> Skip)))))) \<^bold>; (enter_Reading \<rightarrow> Trans_GA\<cdot>NID_Reading))))))))
+	  \<box>
+	  (share \<rightarrow> Trans_GA\<cdot>n)) )
+	  \<box>
+	  (((interrupt \<rightarrow> (SSTOP \<triangle> (exit \<rightarrow> Skip))) \<^bold>; (SSTOP \<triangle> (exited \<rightarrow> (terminate \<rightarrow> Skip))))
+	  \<box>
+	  (terminate \<rightarrow> Skip)))))) \<close>
+*)
 
 term dot
 
@@ -182,33 +214,14 @@ ML \<open>
 @{term "internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip"}
 \<close>
 
-lemma "internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip \<^bold>; exit \<rightarrow> exited \<rightarrow> resume_out \<rightarrow> enter_NoGas \<rightarrow> Trans'\<cdot>NID_NoGas = undefined"
-  oops
+lemma Trans_GA_ddlf: \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_GA\<cdot>n) \<close>
+  apply (rule df_step_param_intro[OF Trans_GA.simps])
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)  
+  
 
-lemma "deadlock_free (Trans'\<cdot>n)"
-  apply (rule df_step_intro[OF Trans'.simps])  
-  apply (simp add: biextchoic_normalization bi_extchoice_norm read_Seq write_Seq write0_Seq)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  thm read_proving_Mndetprefix_UNIV_ref
-  apply (rule read_proving_Mndetprefix_UNIV_ref)
-    apply (meson Trans.trans_event.inject(2) inj_onI)
-   apply (simp)
-  apply (rule eat_read_lemma)
-   apply (simp add: inj_on_def)
-  thm generalized_refine_guarded_extchoice
-    apply (rule_tac generalized_refine_guarded_extchoice_star)
-  thm   prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice Guard_def
-  oops (*proof failed because some transitions are missing from Trans*)
+corollary \<open>deadlock_free (Trans_GA\<cdot>NID_i1)\<close>
+  by (meson Trans_GA_ddlf UNIV_I deadlock_free_GlobalNdet_iff)
 
-lemma "Trans'\<cdot>n = a"
-  apply (subst Trans'.simps)
-  apply (simp del: Trans'.simps add: bi_extchoice_norm biextchoic_normalization Guard_seq)
-
-  oops
-
-
-find_theorems Trans'
 
 term "g \<^bold>& (a \<rightarrow> Skip) \<^bold>; b \<rightarrow> P" (* \<^bold>&  84*) (* \<^bold>; 74*) (* \<^bold>\<rightarrow> 77*) (* \<^bold>\<box> 82*)
 
@@ -269,17 +282,6 @@ proof (unfold deadlock_free_def DF_def)
   qed
 qed
 
-corollary \<open>deadlock_free (Trans'\<cdot>NID_i1)\<close>
-  by (metis deadlock_free_Trans' list.size(3))
-
-lemma 
-  assumes P_def: \<open>P = (Trans\<cdot>n)\<close>
-  shows \<open>deadlock_free (Trans\<cdot>n)\<close>
-  by (deadlock_free P_def: P_def)
-
-lemma "(Trans'\<cdot>n) = undefined"
-  apply (subst Trans.Trans.unfold)
-  
 
 
 lemma deadlock_free_Trans : \<open>deadlock_free (Trans'\<cdot>n)\<close>

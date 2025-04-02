@@ -386,6 +386,10 @@ lemma Trans_ddlf:
 
 end
 
+lemma assumes \<open>g1 \<or> g2\<close>
+  shows \<open>(g1 \<^bold>& P ) \<^bold>; R = g1 \<^bold>& (P \<^bold>; R) \<close>
+  find_theorems "?g1 \<^bold>& (?P \<^bold>; ?R) \<box>  ?g2 \<^bold>& (?Q\<^bold>; ?R)"
+  nitpick[mono]
 end
 
 
