@@ -489,7 +489,7 @@ lemma df_step_param_intro:
 
 (*This version is for parametrized process*)
 lemma df_step_param_cont_intro:
-  assumes P_def: "\<And> x. P\<cdot>x = Q\<cdot>x" "\<And> x. (GlobalNdet UNIV (\<lambda>x. P\<cdot>x))\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<cdot>x"
+  assumes P_def: "\<And> x. P\<cdot>x = Q x" "\<And> x. (GlobalNdet UNIV (\<lambda>x. P\<cdot>x))\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
   shows "deadlock_free (\<sqinter> n \<in> UNIV. P\<cdot>n)"
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
   apply (subst P_def)  back
@@ -703,6 +703,11 @@ next
       using "1" by fastforce
   qed
 qed *)
+
+lemma generalized_refine_guarded_extchoice_star:
+  assumes \<open>\<exists>i\<in>I. b(i)\<close> \<open>\<And> i. \<lbrakk> i \<in> I; b(i) \<rbrakk> \<Longrightarrow> \<sqinter>a\<in>UNIV \<rightarrow> X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P(i)\<close>
+  shows \<open> \<sqinter>a\<in>UNIV \<rightarrow> X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D \<box> i\<in>I. b(i) \<^bold>& P(i)\<close>
+  oops
 
 
 lemma ex4_m:
@@ -1224,6 +1229,8 @@ lemma inc_df_ex_aux_specific:
   shows "deadlock_free (P 0)"
   by (meson UNIV_I assms deadlock_free_GlobalNdet_iff inc_df_ex_aux)
 
+lemma GlobalNdet_refine_no_step: "a \<in> A \<Longrightarrow> (GlobalNdet A P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P a"
+  by (meson GlobalNdet_refine_FD UNIV_I no_step_refine trans_FD)
 
 lemma ex11_param: 
   assumes P_def: \<open>\<And> i. P i  =  e \<rightarrow> (b(0) \<^bold>& ((a\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P (0)) ) \<box>  b(1) \<^bold>& ((c\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(1))) \<box>  b(2) \<^bold>& ((d\<rightarrow>Skip)\<^bold>;(a\<rightarrow> P(2))) \<box> (terminate \<rightarrow> P(3)) )\<close> and 
@@ -1236,9 +1243,7 @@ lemma ex11_param:
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
  
   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
-
-  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine GlobalNdet_refine_no_step)
 (*line above equivalent to repeat 4 times of the following 3 lines
   apply (rule order.trans)
   apply (rule no_step_refine)
@@ -1261,8 +1266,7 @@ lemma ex11_param_step2_df_m:
  (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine)
-  apply (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine GlobalNdet_refine_no_step)
   done
 
 
@@ -1272,8 +1276,7 @@ method deadlock_free_normed_param uses P_def assms=
   (rule df_step_param_intro[OF P_def]
   , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
 , auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine
-, (meson GlobalNdet_refine_FD UNIV_I no_step_refine order.trans)+
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine GlobalNdet_refine_no_step 
 )
 
 lemma ex11_param_step2_df_a: 
@@ -1286,10 +1289,10 @@ lemma ex11_param_step2_df_a:
  shows\<open>deadlock_free (\<sqinter> n \<in> UNIV. P n) \<close>
   by (deadlock_free_normed_param P_def: P_def)
 
-
- (*the line below is for non_param version
+ (*the line below is for non_param version, simp is sufficient instead of meson.
  by (simp add: P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))
 *)
+
 
 (*not used anymore
 lemma ex11_no_para:

@@ -140,7 +140,7 @@ fixrec Trans_ex1  :: "NIDS_stm0 \<rightarrow> trans_event process"
 	  \<box>
 	 (n = NID_s0_stm0) \<^bold>&  ((a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s1_stm0 \<rightarrow> Skip))))))
 	  \<box>
-	  ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip);; (enter_s0_stm0 \<rightarrow> Skip))))))
+	 (n = NID_s1_stm0) \<^bold>& ((b__in\<^bold>.NID_s1_stm0 \<rightarrow> Skip)\<^bold>; ((SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip))\<^bold>; (SSTOP \<triangle> ((exited_stm0 \<rightarrow> Skip)\<^bold>; (enter_s0_stm0 \<rightarrow> Skip))))))
 	  \<box>
 	  (share \<rightarrow> Skip))\<^bold>; Trans_stm0\<cdot>n)
 	  \<box>

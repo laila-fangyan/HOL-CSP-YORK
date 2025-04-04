@@ -174,19 +174,6 @@ where
 	  (terminate \<rightarrow> Skip)
 \<close>
 
-
-
-lemma df_Skip: 
-  assumes \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P\<close> 
-  shows \<open>deadlock_free (P \<box> (a\<rightarrow> Skip))\<close>
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
-
-
-lemma skip_refine:
-  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Skip\<close>
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
-
-
 (*
 lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"
   sorry*)
@@ -199,6 +186,7 @@ lemma SSTOP_refine:
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D SSTOP \<triangle> P"
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
+(*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
   by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans_ex1.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
 
@@ -235,26 +223,23 @@ lemma Trans_ex1_ddlf:
   *)
 
   done
-
+  
 
 
 lemma Trans_ex1_ddlf_sledgehammer:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
-  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1.simps])
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 
 lemma Trans_ex1'_ddlf_sledgehammer:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n) \<close>
-  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1'.simps])
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 
 lemma Trans_ex1''_ddlf_sledgehammer:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n) \<close>
-  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1''.simps])
   by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
@@ -283,7 +268,6 @@ method deadlock_free_trans uses P_def assms=
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step
 ,insert NIDS_stm0.exhaust atLeast0_atMost_Suc , auto 
 , (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
-
 )
 
 
@@ -294,7 +278,7 @@ lemma Trans_ex1_ddlf_auto:
 
 thm Trans_ex1.simps
 
-(*This method needs to be updated, as it uses lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"*)
+(*TO DO: This method needs to be updated, as it uses lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"*)
 method normalization uses P_def =
   (subst P_def
   , simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
@@ -307,8 +291,8 @@ lemma trans_norm:
              then if i = 0 then internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> (enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)
                   else a__in\<^bold>.NID_s0_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s1_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s1_stm0))
              else b__in\<^bold>.NID_s1_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))  \<close>
-  by (normalization P_def: Trans_ex1.simps)
-
+  apply (normalization P_def: Trans_ex1.simps)
+  sorry
 
 
 method deadlock_free_trans_step2 uses P_def assms=
@@ -386,6 +370,11 @@ lemma Trans_ddlf:
 
 end
 
+lemma assumes \<open>g1 \<or> g2\<close>
+  shows \<open>(g1 \<^bold>& P ) \<^bold>; R = g1 \<^bold>& (P \<^bold>; R) \<close>
+  find_theorems "?g1 \<^bold>& (?P \<^bold>; ?R) \<box>  ?g2 \<^bold>& (?Q\<^bold>; ?R)"
+  nitpick[mono]
+  sorry
 end
 
 

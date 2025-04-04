@@ -823,7 +823,7 @@ lemma bi_extchoice_norm:
 lemma bi_extchoice_norm_multi_guard: 
   assumes \<open>b \<or> c\<close>  and \<open>g \<or> h\<close>
   shows "(g \<and> b ) \<^bold>& P \<box> (g \<and> c) \<^bold>& Q \<box> h \<^bold>& R =  \<box>i\<in>{0..Suc (Suc(0))}. (if i \<le> Suc(0) then if i= 0 then b else c else h) \<^bold>& (if i \<le> Suc (0) then if i= 0 then  P else Q else R ) "
-  
+  sorry
 
 lemma bi_extchoice_nguard_norm:
 "(a\<rightarrow> P) \<box>(b\<rightarrow>  Q) = True \<^bold>& (a\<rightarrow> P) \<box> True \<^bold>& (b\<rightarrow>Q) "
@@ -1412,6 +1412,19 @@ proof -
     apply (auto intro!: Det_assoc Interrupt_write0 Ndet_id P_def Q_def ex2_a' write0_Det_write0_is_write0_Ndet_write0 write0_Ndet_write0)
     oops
 
+
+
+
+
+lemma df_Skip: 
+  assumes \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P\<close> 
+  shows \<open>deadlock_free (P \<box> (a\<rightarrow> Skip))\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+
+lemma skip_refine:
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Skip\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 
 end
