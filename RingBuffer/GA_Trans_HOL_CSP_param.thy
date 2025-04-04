@@ -11,7 +11,7 @@
 
 theory GA_Trans_HOL_CSP_param
   imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  "DeadlockFreedom_Automation" "circus_theory_example1_ddlf"
+          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation "circus_theory_example1_ddlf"
 begin
 
 \<comment> \<open>This version uses fixrec to model Trans of Gas Analysis\<close>
@@ -136,7 +136,7 @@ datatype trans_event =
 "gas__in" " (GasSensor list)" | 
 (*gas__in type changed to GasSensor List, the NID is hidden because 1) the source node is explicit now, 2) the multi-prefix is not implemented, thus 'gas__in\<^bold>.(NID_Reading)\<^bold>?(gs)' is not supported*)
 (*"gas__in" "NIDS \<times> (GasSensor list)" |*)
-(*"gas__in" "NIDS \<Rightarrow> GasSensor list \<Rightarrow> trans_event"|
+(*"gas__in" "NIDS \<Rightarrow> GasSensor list \<Rightarrow> trans_event"| ?
 *)
 
 "resume__in" "NIDS" |
@@ -202,6 +202,7 @@ where
 	 ) )
 	 )))) \<close>
 (* this is the complete version, but with issue in gas__in\<^bold>.NID_Reading?gs
+the version above removed the transition containing gas__in\<^bold>.NID_Reading?gs
 [simp del] :\<open>Trans_GA\<cdot>n =
 	(SSTOP \<triangle> (get_sts\<^bold>?sts \<rightarrow> (get_ins\<^bold>?ins \<rightarrow> (
     ((((((((
@@ -232,28 +233,24 @@ ML \<open>
 @{term "internal__chan\<^bold>.NID_Analysis \<rightarrow> Skip"}
 \<close>
 
-lemma Trans_GA_ddlf_sledgehammer: \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_GA\<cdot>n) \<close>
-  apply (rule df_step_param_intro[OF Trans_GA.simps])
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)  
-  
-
-corollary \<open>deadlock_free (Trans_GA\<cdot>NID_i1)\<close>
-  by (meson Trans_GA_ddlf_sledgehammer UNIV_I deadlock_free_GlobalNdet_iff)
-
-
 
 (*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S SSTOP.unfold ex1_m'
+      non_terminating_is_empty_ticks_of)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
-  by (simp add: AfterExt.deadlock_free_imp_not_initial_tick ex_Skip inf_commute)
+  by (simp add: Trans_ex1.prefix_Skip_no_initial_tick)
 
+lemma "(SSTOP \<triangle> P )\<^bold>; Q = SSTOP \<triangle> (P\<^bold>; Q )"
+prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step
+,insert NIDS_stm0.exhaust atLeast0_atMost_Su
 
 lemma SSTOP_refine:
   assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D SSTOP \<triangle> P"
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+  by (metis GlobalNdet_iterations'_Mndetprefix SKIPS_singl_is_SKIP df_step_intro non_deadlock_free_SKIPS skip_refine)
 
 method deadlock_free_trans uses P_def assms=
   (rule df_step_param_intro[OF P_def]
@@ -265,11 +262,27 @@ method deadlock_free_trans uses P_def assms=
 , (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
 )
 
-
-
-lemma Trans_GA'_ddlf_auto:
+lemma Trans_GA'_ddlf_manual:
  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_GA'\<cdot>n) \<close>
-  by (deadlock_free_trans P_def: Trans_GA'.simps)
+ apply (rule df_step_param_intro[OF Trans_GA'.simps])
+  (* Normalisation *)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq )
+
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+
+  (* Simplify away the events in the cases not inclucing interrupt *)
+  (* apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )*)
+
+
+  (*discharge the guards*)
+  using NIDS_stm0.exhaust atLeast0_atMost_Suc apply auto[1]
+  find_theorems "Trans_GA'"
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
+                                          
+
 
 term "g \<^bold>& (a \<rightarrow> Skip) \<^bold>; b \<rightarrow> P" (* \<^bold>&  84*) (* \<^bold>; 74*) (* \<^bold>\<rightarrow> 77*) (* \<^bold>\<box> 82*)
 

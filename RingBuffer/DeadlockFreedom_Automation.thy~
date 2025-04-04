@@ -811,13 +811,20 @@ term "\<box> i\<in>{0,1::int}. (if i = 0 then b \<^bold>& P else c \<^bold>& Q)"
 lemma "\<box> i\<in>{0,1::nat}. (if i = 0 then P else Q) = P \<box> Q"
   by (simp add: GlobalDet_distrib_unit_bis)
 
+named_theorems normalisation
 
-lemma bi_extchoice_norm:
+lemma bi_extchoice_norm [normalisation]:
 "b \<^bold>& P \<box> c \<^bold>& Q = \<box> i\<in>{0..1::nat}. (if i = 0 then b else c) \<^bold>&(if i = 0 then P else Q)"
   apply (simp add: GlobalDet_distrib_unit_bis)
   by (smt (verit, ccfv_threshold) Det_commute GlobalDet_factorization_union GlobalDet_unit 
         atLeast0_atMost_Suc atLeastAtMost_singleton insert_is_Un
       old.nat.distinct(1))
+
+
+lemma bi_extchoice_norm_multi_guard: 
+  assumes \<open>b \<or> c\<close>  and \<open>g \<or> h\<close>
+  shows "(g \<and> b ) \<^bold>& P \<box> (g \<and> c) \<^bold>& Q \<box> h \<^bold>& R =  \<box>i\<in>{0..Suc (Suc(0))}. (if i \<le> Suc(0) then if i= 0 then b else c else h) \<^bold>& (if i \<le> Suc (0) then if i= 0 then  P else Q else R ) "
+  sorry
 
 lemma bi_extchoice_nguard_norm:
 "(a\<rightarrow> P) \<box>(b\<rightarrow>  Q) = True \<^bold>& (a\<rightarrow> P) \<box> True \<^bold>& (b\<rightarrow>Q) "
@@ -1317,12 +1324,15 @@ find_theorems SKIP
 
 
 (*Do we need extra lemmas for Skip? or is this deadlock?*)
+
 lemma "deadlock_free Skip"
   oops
 
 lemma ex_Skip:
-  assumes P_def:" P = terminate \<rightarrow> Skip" 
+  assumes P_def:"P = terminate \<rightarrow> Skip" 
   shows\<open>deadlock_free P \<close>
+proof -
+  have False
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)  
   apply (subst P_def)  back 
 apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
@@ -1331,10 +1341,13 @@ apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterati
   thm Seq_SKIP
   sorry
 
+
+
 lemma ex_Skip':
   assumes P_def:" P = terminate \<rightarrow> Skip" 
   shows \<open>\<sqinter>a\<in>UNIV \<rightarrow> (P x)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close>
   apply (rule df_step_intro[OF P_def])
+  oops
 
 text\<open>The method for deadlock freedom of normalized process\<close>
 method deadlock_free_normed_Skip uses P_def assms=
@@ -1405,5 +1418,20 @@ proof -
     using P_def Q_def 1 2
     apply (auto intro!: Det_assoc Interrupt_write0 Ndet_id P_def Q_def ex2_a' write0_Det_write0_is_write0_Ndet_write0 write0_Ndet_write0)
     oops
+
+
+
+
+
+lemma df_Skip: 
+  assumes \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P\<close> 
+  shows \<open>deadlock_free (P \<box> (a\<rightarrow> Skip))\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
+
+lemma skip_refine:
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Skip\<close>
+  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+
 
 end
