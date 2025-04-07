@@ -174,18 +174,12 @@ where
 	  (terminate \<rightarrow> Skip)
 \<close>
 
-(*
-lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"
-  sorry*)
-(*
-lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
-lemma SSTOP_refine:
-  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
-  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D SSTOP \<triangle> P"
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
-*)
+
+lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
+  by (metis Trans_ex1.SSTOP.unfold deadlock_free_implies_lifelock_free ex1_m' lifelock_free_is_non_terminating non_terminating_Seq)
+
+
 (*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
   by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans_ex1.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
@@ -193,28 +187,29 @@ lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
 
+lemma SSTOP_ddlf: 
+  assumes P_def: \<open>SSTOP = share \<rightarrow> SSTOP\<close>
+  shows \<open>deadlock_free SSTOP\<close>
+  apply (rule df_step_intro[OF P_def])
+  apply ( simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
+  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
+             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice Guard_def)
+  done
 
-lemma Trans_ex1'_ddlf:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n) \<close>
-  (* Apply induction *)
-  apply (rule df_step_param_intro[OF Trans_ex1'.simps])
-  (* Normalisation *)
-  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+lemma SSTOP_refine:
+  assumes "deadlock_free P" (* and    \<open>P\<^sup>0 \<inter> range tick = {}\<close>*)
+  shows "deadlock_free ( SSTOP \<triangle> P)"
+  oops
 
-  (* Rewrite the goal to allow multiple events *)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+(*TO DO: this lemma needs to be proved first to validate lemma "Trans_ex1_ddlf"*)
+lemma SSTOP_refine':
+  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P" (* and    \<open>P\<^sup>0 \<inter> range tick = {}\<close>*)
+  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
+  sorry
 
-  (* Simplify away the events in the cases not inclucing interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-  (*move the goal for guards to the last*)
-
-  (*discharge the guards*)
-  using NIDS_stm0.exhaust atLeast0_atMost_Suc apply auto[1]
-    
-
+(*TBC:  this proof uses SSTOP_refine'*)
 lemma Trans_ex1_ddlf:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n)  \<close>
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1.simps])
   (* Normalisation *)
@@ -232,53 +227,101 @@ lemma Trans_ex1_ddlf:
   using NIDS_stm0.exhaust atLeast0_atMost_Suc apply auto[1]
     
   (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
-    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
-  (*the 4 lines below are replaced by the line above
-    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq )
-    apply (simp add: GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)
+   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
 
-    apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq )
-    apply (simp add: GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)
-  *)
-
-  done
-  
-
-
-lemma Trans_ex1_ddlf_sledgehammer:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
-  apply (rule df_step_param_intro[OF Trans_ex1.simps])
-  thm ex_Skip
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)+
+  apply (simp add: GlobalNdet_refine_no_step)
+ (* the above 5 steps equivalent to :
+ apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I) *)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I)
+  oops
 
 
-lemma Trans_ex1'_ddlf_sledgehammer:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n) \<close>
+lemma Trans_ex1'_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1'\<cdot>n)  \<close>
+  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1'.simps])
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+  (* Normalisation *)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+
+  (* Simplify away the events in the cases not inclucing interrupt *)
+   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+  eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
+  (*move the goal for guards to the last*)
+
+    
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)+
+  apply (simp add: GlobalNdet_refine_no_step)
+ (* the above 5 steps equivalent to :
+ apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I) *)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I)
+  oops
 
 
-lemma Trans_ex1''_ddlf_sledgehammer:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n) \<close>
+lemma Trans_ex1''_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n)  \<close>
+  (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_ex1''.simps])
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
+  (* Normalisation *)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+
+  (* Simplify away the events in the cases not inclucing interrupt *)
+   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
+  (*move the goal for guards to the last*)
+
+    
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)
+   apply (rule SSTOP_refine')
+   apply (rule eat_lemma)+
+  apply (simp add: GlobalNdet_refine_no_step)
+ (* the above 5 steps equivalent to :
+ apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I) *)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I)
+  oops
+
+text\<open>proof strategy: 2 options\<close>
+text\<open>option 1: because Skip is ddl, we turn the last 2 branches from terminating to non-terminating: replace Skip with Ternimate \<close>
+term "Terminate = terminate \<rightarrow> Terminate"
+text\<open>option 2: we construct a sequential composition as follows, then use the lemma norm_extchoice_seq and  non_terminating_Seq, to decompose the subgoal to "deadlock_free Trans_core"  \<close>
+term "deadlock_free (Trans_stm0 \<^bold>; SSTOP)"
+
+lemma norm_extchoice_seq: \<open>(P \<box> Q) \<^bold>; R = (P\<^bold>; R)  \<box> (Q \<^bold>; R)\<close>
+  oops
 
 
-thm deadlock_free_write0_iff
-thm ex_Skip
 
-thm non_deadlock_free_SKIP
+lemma Trans_ex1''_ddlf:
+  assumes \<open>\<close>
+  shows \<open>deadlock_free  ( \<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n \<^bold>; SSTOP) \<close>
+  apply (rule df_step_param_intro[OF Trans_ex1''.simps])
 
-(*this method below uses lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)" which is no longer valid.
-method deadlock_free_trans uses P_def assms=
-  (rule df_step_param_intro[OF P_def]
-,simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq
-  , simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-, auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine
-, insert NIDS_stm0.exhaust atLeast0_atMost_Suc , auto 
-)
-*)
+
+
+
+
 
 method deadlock_free_trans uses P_def assms=
   (rule df_step_param_intro[OF P_def]
@@ -319,7 +362,7 @@ method deadlock_free_trans_step2 uses P_def assms=
   (rule df_step_param_intro[OF P_def]
 ,simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
 , auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step SSTOP_refine'
 , insert NIDS_stm0.exhaust atLeast0_atMost_Suc , auto 
 )
 
@@ -356,11 +399,6 @@ lemma [simp]: "(P \<triangle> Q) \<^bold>; R = (P \<^bold>; R) \<triangle> (Q \<
 	  \<box>
 	  (terminate \<rightarrow> Skip) ))*)
 
-term "Terminate = terminate \<rightarrow> Terminate"
-
-term "deadlock_free (Trans_stm0 \<^bold>; SSTOP)"
-
-lemma "non_terminating P \<Longrightarrow> P \<^bold>; Q = P"
 
 
 (* this is the simpliest proved version with no interrupt or skip at the end
@@ -394,13 +432,6 @@ lemma Trans_ddlf:
   done
  *)
 
-end
-
-lemma assumes \<open>g1 \<or> g2\<close>
-  shows \<open>(g1 \<^bold>& P ) \<^bold>; R = g1 \<^bold>& (P \<^bold>; R) \<close>
-  find_theorems "?g1 \<^bold>& (?P \<^bold>; ?R) \<box>  ?g2 \<^bold>& (?Q\<^bold>; ?R)"
-  nitpick[mono]
-  sorry
 end
 
 

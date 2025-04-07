@@ -824,7 +824,7 @@ lemma bi_extchoice_norm [normalisation]:
 lemma bi_extchoice_norm_multi_guard: 
   assumes \<open>b \<or> c\<close>  and \<open>g \<or> h\<close>
   shows "(g \<and> b ) \<^bold>& P \<box> (g \<and> c) \<^bold>& Q \<box> h \<^bold>& R =  \<box>i\<in>{0..Suc (Suc(0))}. (if i \<le> Suc(0) then if i= 0 then b else c else h) \<^bold>& (if i \<le> Suc (0) then if i= 0 then  P else Q else R ) "
-  sorry
+  oops
 
 lemma bi_extchoice_nguard_norm:
 "(a\<rightarrow> P) \<box>(b\<rightarrow>  Q) = True \<^bold>& (a\<rightarrow> P) \<box> True \<^bold>& (b\<rightarrow>Q) "
@@ -885,7 +885,7 @@ lemma
   using assms mono_GlobalDet_eq by blast
 
 text\<open>to push an binary operator term\<open>(\<box>)\<close> into generalized extchoice, this proof does not use induction \<close>
-lemma biextchoic_normalization:
+lemma biextchoic_normalization [normalisation]:
   "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> c \<^bold>& Q 
    = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else c) \<^bold>& (if i \<le> n then P(i) else Q))"
  (is "?lhs = ?rhs")
@@ -928,7 +928,7 @@ qed
 
 
 
-lemma biextchoic_normalization_nguard_prefix:
+lemma biextchoic_normalization_nguard_prefix[normalisation]:
   "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> (a \<rightarrow> Q) 
    = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else True) \<^bold>& (if i \<le> n then P(i) else a \<rightarrow> Q))"
   (is "?lhs = ?rhs")
@@ -1139,7 +1139,13 @@ shows \<open> (P x)  = e \<rightarrow>
 text\<open>The method for normalization: to remove as many operators as possible, this version covers guard, extchoice and sequence\<close>
 method normalization uses P_def =
   (subst P_def
+  , simp add: normalisation read_Seq write_Seq write0_Seq)
+(*we use normalisation to tag the related lemmas, so we don't need to update the method here.
+ (subst P_def
   , simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+*)
+
+
 
 (*using undefined on RHS to automaticlly derive the normed form. How to implement during Eclipse commu?*)
 lemma seq_norm:
@@ -1323,32 +1329,11 @@ text\<open>DF Skip\<close>
 find_theorems SKIP 
 
 
-(*Do we need extra lemmas for Skip? or is this deadlock?*)
-
+(* Skip is deadlock*)
 lemma "deadlock_free Skip"
   oops
 
-lemma ex_Skip:
-  assumes P_def:"P = terminate \<rightarrow> Skip" 
-  shows\<open>deadlock_free P \<close>
-proof -
-  have False
-  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)  
-  apply (subst P_def)  back 
-apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
-  apply (rule prefix_proving_Mndetprefix_UNIV_ref(3))
-  find_theorems DF SKIP
-  thm Seq_SKIP
-  sorry
-
-
-
-lemma ex_Skip':
-  assumes P_def:" P = terminate \<rightarrow> Skip" 
-  shows \<open>\<sqinter>a\<in>UNIV \<rightarrow> (P x)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close>
-  apply (rule df_step_intro[OF P_def])
-  oops
-
+(* this section is not correct because it uses ex_Skip (Skip_ddlf)
 text\<open>The method for deadlock freedom of normalized process\<close>
 method deadlock_free_normed_Skip uses P_def assms=
   (rule df_step_intro[OF P_def]
@@ -1392,7 +1377,7 @@ the CORRECT application order of the lemmas:
   apply (rule ex_Skip)
   by (metis P_def eat_lemma no_step_refine prefix_proving_Mndetprefix_UNIV_ref(3))+
 
-
+*)
 
 text\<open>can @term{\<triangle>} be normalized? for the pattern in Trans : SSTOP@term{\<triangle>}, we need a lemma to deal with ddlf \<close>
 
@@ -1420,18 +1405,6 @@ proof -
     oops
 
 
-
-
-
-lemma df_Skip: 
-  assumes \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P\<close> 
-  shows \<open>deadlock_free (P \<box> (a\<rightarrow> Skip))\<close>
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
-
-
-lemma skip_refine:
-  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Skip\<close>
-  by (meson deadlock_free_write0_iff ex_Skip non_deadlock_free_SKIP)
 
 
 end
