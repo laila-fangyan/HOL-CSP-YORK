@@ -203,9 +203,9 @@ lemma SSTOP_refine:
 
 (*TO DO: this lemma needs to be proved first to validate lemma "Trans_ex1_ddlf"*)
 lemma SSTOP_refine':
-  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P" (* and    \<open>P\<^sup>0 \<inter> range tick = {}\<close>*)
+  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P" 
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
-  sorry
+  oops
 
 (*TBC:  this proof uses SSTOP_refine'*)
 lemma Trans_ex1_ddlf:
@@ -289,7 +289,7 @@ lemma Trans_ex1''_ddlf:
 
     
   (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
-   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq)
 
    apply (rule SSTOP_refine')
    apply (rule eat_lemma)
@@ -302,24 +302,37 @@ lemma Trans_ex1''_ddlf:
   apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I)
   oops
 
-text\<open>proof strategy: 2 options\<close>
-text\<open>option 1: because Skip is ddl, we turn the last 2 branches from terminating to non-terminating: replace Skip with Ternimate \<close>
+text\<open>20250404, The last two branches in the complete version of Trans (Trans_ex1'') lead to termination, in order to prove the deadlock freedom of the transitions' behaviour, we can use the proof strategies: 2 options available\<close>
+text\<open>option 1: because Skip is ddl, we turn the last 2 branches from terminating to non-terminating: to replace Skip with Terminate \<close>
 term "Terminate = terminate \<rightarrow> Terminate"
-text\<open>option 2: we construct a sequential composition as follows, then use the lemma norm_extchoice_seq and  non_terminating_Seq, to decompose the subgoal to "deadlock_free Trans_core"  \<close>
+text\<open>option 2: we construct a sequential composition as follows, then use the lemma norm_extchoice_seq and  non_terminating_Seq, to decompose the goal to obtain the subgoal of "deadlock_free Trans_core"  \<close>
 term "deadlock_free (Trans_stm0 \<^bold>; SSTOP)"
 
 lemma norm_extchoice_seq: \<open>(P \<box> Q) \<^bold>; R = (P\<^bold>; R)  \<box> (Q \<^bold>; R)\<close>
   oops
 
-
+  thm non_terminating_Seq
+  term "( \<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n \<^bold>; SSTOP)"
 
 lemma Trans_ex1''_ddlf:
-  assumes \<open>\<close>
-  shows \<open>deadlock_free  ( \<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n \<^bold>; SSTOP) \<close>
-  apply (rule df_step_param_intro[OF Trans_ex1''.simps])
+ assumes P_def: \<open>\<And> n. P n =  (Trans_ex1''\<cdot>n \<^bold>; SSTOP )\<close>
+  shows \<open>deadlock_free( \<sqinter> n \<in> UNIV.  P n )\<close>
+  apply (rule df_step_param_intro[OF P_def])
+ apply (subst Trans_ex1''.simps)  
+  apply(rule norm_extchoice_seq)
+(* do we need a generalized norm_extchoice_seq?*)
+  oops
 
+lemma Trans_ex1''_ddlf:
+ assumes P_def: \<open>P n = \<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n \<^bold>; SSTOP \<close>
+  shows \<open>deadlock_free  P \<close>
+  apply (rule df_step_param_intro[OF P_def])
+  oops
 
-
+lemma Trans_ex1''_ddlf:
+  \<open>deadlock_free  ( \<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n \<^bold>; SSTOP) \<close>
+  apply (rule df_step_param_intro[OF Trans_ex1''.simps\<^bold>;SSTOP])
+  oops
 
 
 
@@ -355,7 +368,7 @@ lemma trans_norm:
                   else a__in\<^bold>.NID_s0_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s1_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s1_stm0))
              else b__in\<^bold>.NID_s1_stm0 \<rightarrow> SSTOP \<triangle> (exit_stm0 \<rightarrow> SSTOP \<triangle> (exited_stm0 \<rightarrow> enter_s0_stm0 \<rightarrow> Trans_ex1\<cdot>NID_s0_stm0)))  \<close>
   apply (normalization P_def: Trans_ex1.simps)
-  sorry
+  oops
 
 
 method deadlock_free_trans_step2 uses P_def assms=
