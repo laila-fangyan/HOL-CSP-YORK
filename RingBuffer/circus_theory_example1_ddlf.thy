@@ -2,10 +2,7 @@ theory circus_theory_example1_ddlf
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete" "HOL-CSP.Process"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
 begin
-
-
-lemma Guard_seq: "(b \<^bold>& P) \<^bold>; Q = b \<^bold>& (P \<^bold>; Q)"
-  by (simp add: Guard_def)
+                                 
 
 
 default_sort type
@@ -51,9 +48,6 @@ end
 
 (*instantiation NIDS_stm0 :: discrete_cpo*)
 
-locale Trans_ex1 = 
- fixes d :: nat
-begin
 \<comment> \<open>Channel Declaration\<close>
 datatype trans_event = 
 "share"|
@@ -120,6 +114,9 @@ datatype trans_event =
 "enteredL_s2_stm0" |
 "enteredR_s2_stm0" 
 
+locale Trans_ex1 = 
+ fixes d :: nat
+begin
 fixrec  SSTOP       :: "trans_event process"              and
         Trans_ex1   :: "NIDS_stm0 \<rightarrow> trans_event process" and
         Trans_ex1'  :: "NIDS_stm0 \<rightarrow> trans_event process" and
@@ -413,7 +410,7 @@ lemma Trans_ex1'''_ddlf:
 
   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
    apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine' eat_lemma iso_tuple_UNIV_I)
-  apply (subst Terminate_def) 
+
 
 
   oops
