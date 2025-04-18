@@ -1,4 +1,4 @@
-theory circus_theory_HOLCSP 
+theory circus_theory_HOLCSP_example1_ddl_autogen 
 	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
           "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
 begin

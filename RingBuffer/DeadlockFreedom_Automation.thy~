@@ -1103,6 +1103,8 @@ the CORRECT application order of the lemmas:
   apply (simp add: biextchoic_normalization  )
   apply (simp add: biextchoic_normalization_nguard  )
 *)
+
+
   apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )

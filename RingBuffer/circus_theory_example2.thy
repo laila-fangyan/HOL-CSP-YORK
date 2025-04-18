@@ -4,9 +4,6 @@ theory circus_theory_example2
 begin
 
 
-lemma Guard_seq: "(b \<^bold>& P) \<^bold>; Q = b \<^bold>& (P \<^bold>; Q)"
-  by (simp add: Guard_def)
-
 
 default_sort type
 
