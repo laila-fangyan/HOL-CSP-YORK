@@ -208,66 +208,6 @@ lemma SSTOP_refine:
   oops
 *)
 (*TO DO: this lemma needs to be proved first to validate lemma "Trans_ex1_ddlf"*)
-
-lemma interrupt_ref:
-  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P" and "Q = a \<rightarrow> Q"
-  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  Q \<triangle> P"
-proof (unfold refine_defs, safe)
-  show \<open>(t, Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> (t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t Y
-  proof (induct t)
-    from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P\<close> show \<open>([], Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> ([], Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-      apply (subst (asm) \<open>Q = a \<rightarrow> Q\<close>)
-      apply (simp add: refine_defs write0_projs F_Interrupt GlobalNdet_iterations'_def F_GlobalNdet F_iterate_Mndetprefix_UNIV subset_iff)
-      by (metis append_is_Nil_conv is_processT6_TR is_processT8 list.size(3) self_append_conv2)
-  next
-    fix e t Y assume hyp : \<open>(t, Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> (t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-    assume \<open>(e # t, Y) \<in> \<F> (Q \<triangle> P)\<close>
-    hence \<open>(e # t, Y) \<in> \<F> ((a \<rightarrow> Q) \<triangle> P)\<close> by (subst (asm) \<open>Q = a \<rightarrow> Q\<close>) simp
-    then consider \<open>(e # t, Y) \<in> \<F> P\<close> | \<open>e = ev a\<close> \<open>(t, Y) \<in> \<F> (Q \<triangle> P)\<close>
-      by (auto simp add: Interrupt_write0 F_Det F_write0)
-    thus \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-    proof cases
-      assume \<open>(e # t, Y) \<in> \<F> P\<close>
-      with \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-        by (simp add: refine_defs subset_iff)
-    next
-      assume \<open>e = ev a\<close> \<open>(t, Y) \<in> \<F> (Q \<triangle> P)\<close>
-      from this(2)[THEN hyp] have \<open>(t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> .
-      thus \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-        apply (auto simp add: \<open>e = ev a\<close> GlobalNdet_iterations'_def F_GlobalNdet F_iterate_Mndetprefix_UNIV)
-        by (metis append_Cons event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.discI(1) tickFree_Cons_iff)
-    qed
-  qed
-next
-  show \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t
-  proof (induct t)
-    from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>[] \<in> \<D> (Q \<triangle> P) \<Longrightarrow> [] \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-      by (simp add: refine_defs subset_iff D_Interrupt GlobalNdet_iterations'_def D_GlobalNdet D_iterate_Mndetprefix_UNIV)
-        (metis Nil_is_append_conv Nil_notin_D_Mprefix assms(2) write0_def)
-  next
-    fix e t assume hyp : \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-    assume \<open>e # t \<in> \<D> (Q \<triangle> P)\<close>
-    hence \<open>e # t \<in> \<D> ((a \<rightarrow> Q) \<triangle> P)\<close> by (subst (asm) \<open>Q = a \<rightarrow> Q\<close>) simp
-    hence \<open>e # t \<in> \<D> P \<or> t \<in> \<D> (Q \<triangle> P)\<close>
-      by (auto simp add: D_Interrupt write0_projs)
-    thus \<open>e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-    proof (elim disjE)
-      from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>e # t \<in> \<D> P \<Longrightarrow> e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-        by (simp add: refine_defs subset_iff)
-    next
-      show \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
-        by (auto simp add: GlobalNdet_iterations'_def D_GlobalNdet D_iterate_Mndetprefix_UNIV dest!: hyp)
-          (metis D_imp_front_tickFree \<open>e # t \<in> \<D> (Q \<triangle> P)\<close> append.left_neutral
-            append_Cons front_tickFree_nonempty_append_imp is_processT7)
-    qed
-  qed
-qed
-   
-
-
-
-
-
 lemma SSTOP_refine:
   assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P" 
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"

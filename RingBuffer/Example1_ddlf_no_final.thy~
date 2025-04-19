@@ -1,6 +1,6 @@
 theory Example1_ddlf_no_final
 	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete" "HOL-CSP.Process"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
+          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq 
 begin
                                  
 
@@ -460,20 +460,20 @@ lemma Trans_ex1''_ddlf:
 
   apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
 
-  apply (simp add: norm_extchoice_seq_gen)
-
+  
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
 
 (* do we need a generalized norm_extchoice_seq?*)
   oops
 
+(*
 lemma Trans_ex1''_ddlf:
  assumes P_def: \<open>P n = \<sqinter> n \<in> UNIV. Trans_ex1''\<cdot>n \<^bold>; SSTOP \<close>
   shows \<open>deadlock_free  P \<close>
   apply (rule df_step_param_intro[OF P_def])
   oops
 
-
+*)
 
 
 method deadlock_free_trans uses P_def assms=
