@@ -1480,6 +1480,8 @@ proof -
     oops
 
 
+lemma guard_pushed_in: \<open>g1 \<^bold>& (g2 \<^bold>& P ) = ( g1 \<and> g2 ) \<^bold>& P\<close>
+  by (simp add: Guard_def)
 
 
 end

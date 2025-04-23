@@ -74,10 +74,11 @@ datatype chan_event  =
 \<comment> \<open>state_channel_in_stmbd_s1_stm3\<close>
 
 "enter_s1_stm3"  |"entered_s1_stm3"  |"interrupt_s1_stm3"  |"enteredL_s1_stm3"  |"enteredR_s1_stm3" 	
-  
+ 
  
 locale Trans =
-fixes d :: nat
+  fixes d :: nat
+  
 begin
 
 fixrec  
@@ -164,27 +165,40 @@ lemma SSTOP_refine_plus:
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
   by (metis GlobalNdet_iterations'_Mndetprefix SSTOP.unfold assms interrupt_ref)
 
+(*this trans has share \<rightarrow> Trans, so is deadlock free. also because has True &, so guards do not need to be proved.*)
 lemma Trans_stm3_core_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm3_core\<cdot>n)  \<close>
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_stm3_core.simps])
   (* Normalisation *)
-  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
 
-apply (rule SSTOP_refine_plus)
+  apply (simp add: guard_pushed_in bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  
+  apply (rule SSTOP_refine_plus)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
-apply (rule read_prefix_proving_Mndetprefix_ref    )
-   apply (simp add: inj_def)
+  apply (rule read_prefix_proving_Mndetprefix_ref    )
+  apply (simp add: inj_def)
   apply (rule generalized_refine_guarded_extchoice_star)
-   apply (simp add: atLeast0_atMost_Suc)
+  apply (simp add: atLeast0_atMost_Suc)
 
   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
   eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
 
   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
-  oops
+  apply (auto intro!:  SSTOP_refine eat_lemma GlobalNdet_refine_no_step)
+   (* The following is replaced by the line above
+  apply (rule SSTOP_refine  )
+  apply (rule eat_lemma)
+  apply (rule SSTOP_refine  )
+  apply (rule eat_lemma)+
+  apply (simp add: GlobalNdet_refine_no_step)
+  *)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!:  SSTOP_refine eat_lemma GlobalNdet_refine_no_step)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!:  SSTOP_refine eat_lemma GlobalNdet_refine_no_step)
+  done
 
 
 lemma Trans_stm3_core'_ddlf:
@@ -192,25 +206,18 @@ lemma Trans_stm3_core'_ddlf:
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_stm3_core'.simps])
   (* Normalisation *)
-  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  apply (simp add: guard_pushed_in bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
 apply (rule SSTOP_refine_plus)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
 
-apply (rule read_prefix_proving_Mndetprefix_ref    )
-   apply (simp add: inj_def)
+  apply (rule read_prefix_proving_Mndetprefix_ref    )
+  apply (simp add: inj_def)
   apply (rule generalized_refine_guarded_extchoice_star)
+  
    apply (simp add: atLeast0_atMost_Suc)
-  using NIDS_stm3.exhaust apply blast
-  (* Rewrite the goal to allow multiple events *)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
-  (* Simplify away the events in the cases not inclucing interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
-  eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-
-(*the guard can not be discharged*)
   nitpick
+(*nitpick returns a counterexample, how do we set v1 as 1*)
   oops
 
 

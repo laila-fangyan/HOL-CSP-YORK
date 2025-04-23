@@ -199,9 +199,22 @@ lemma Trans_stm1_core'_ddlf:
    apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
   eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
   nitpick
- 
+  oops
 
 
+lemma Trans_stm1_core'_non_term_ddlf:
+ assumes P_def: \<open>\<And> n. P n =  (Trans_stm1_core'\<cdot>n \<^bold>; SSTOP )\<close>
+  shows \<open>deadlock_free( \<sqinter> n \<in> UNIV.  P n )\<close>
+  apply (rule df_step_param_intro[OF P_def])
+  apply (subst Trans_stm1_core'.simps)  
+
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+  
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+
+(* do we need a generalized norm_extchoice_seq? I didn't manage to define the lemma*)
+  oops
 end
 end
 
