@@ -156,6 +156,49 @@ lemma SSTOP_refine:
   by (meson SSTOP.simps assms interrupt_ref)
 
 
+
+lemma Trans_stm0_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm0\<cdot>n)  \<close>
+  (* Apply induction *)
+  apply (rule df_step_param_intro[OF Trans_stm0.simps])
+  (* Normalisation *)
+  apply  (simp add: Det_assoc)
+  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+
+  (* Rewrite the goal to allow multiple events *)
+  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
+ 
+  (* Simplify away the events in the cases not inclucing interrupt *)
+   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+  eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
+
+  (*The line below to discharge the guard is not needed? Because the last choice is always true*)
+  (*using atLeast0AtMost apply auto[1]*)
+ 
+
+    
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+
+   apply (rule SSTOP_refine)
+   apply (rule eat_lemma)
+   apply (rule SSTOP_refine)
+   apply (rule eat_lemma)+
+  apply (simp add: GlobalNdet_refine_no_step)
+ (* the above 5 steps equivalent to one line :
+ apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I) *)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+  apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+    apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)
+
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
+   apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)
+  oops
+
+
+
 lemma Trans_stm0_core_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm0_core\<cdot>n)  \<close>
   (* Apply induction *)
@@ -170,7 +213,7 @@ lemma Trans_stm0_core_ddlf:
    apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
   eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
 
-  (*WHY is the line below to discharge the guard is not needed? Because the last choice is always true?*)
+  (*The line below to discharge the guard is not needed? Because the last choice is always true*)
   (*using atLeast0AtMost apply auto[1]*)
  
 
@@ -183,7 +226,7 @@ lemma Trans_stm0_core_ddlf:
    apply (rule SSTOP_refine)
    apply (rule eat_lemma)+
   apply (simp add: GlobalNdet_refine_no_step)
- (* the above 5 steps equivalent to :
+ (* the above 5 steps equivalent to one line :
  apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I) *)
   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq )
   apply (auto intro!: GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)
