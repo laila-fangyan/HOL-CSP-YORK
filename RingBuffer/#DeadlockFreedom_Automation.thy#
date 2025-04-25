@@ -1487,5 +1487,11 @@ proof -
 lemma guard_pushed_in: \<open>g1 \<^bold>& (g2 \<^bold>& P ) = ( g1 \<and> g2 ) \<^bold>& P\<close>
   by (simp add: Guard_def)
 
+lemma skip_seq:\<open>g1 \<^bold>& (P \<^bold>; (a\<rightarrow> Skip)) \<^bold>; Q = g1 \<^bold>& (P \<^bold>; a\<rightarrow> Q)\<close>
+  by (metis Guard_def SKIP_Seq STOP_Seq Seq_assoc write0_Seq)
 
+
+
+lemma skip_seq2:\<open>g1 \<^bold>& (P \<^bold>; Q \<^bold>; (a\<rightarrow> Skip)) \<^bold>; R = g1 \<^bold>& (P \<^bold>; Q \<^bold>; a\<rightarrow> R)\<close>
+  by (metis Guard_def SKIP_Seq STOP_Seq Seq_assoc write0_Seq)
 end

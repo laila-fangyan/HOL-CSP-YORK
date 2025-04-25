@@ -951,12 +951,6 @@ lemma biextchoic_normalization_nguard_prefix[normalisation]:
 
 
 
-lemma biextchoic_normalization_nguard_prefix_Skip[normalisation]:
-  "(\<box> i\<in>{0..n::nat}. b(i) \<^bold>& P(i)) \<box> (terminate \<rightarrow> Skip) 
-   = (\<box> i\<in>{0..n+1}. (if i \<le> n then b(i) else True) \<^bold>& (if i \<le> n then P(i) else terminate \<rightarrow> Skip))"
-  (is "?lhs = ?rhs")
-  by (simp add: biextchoic_normalization_nguard_prefix)
-
 
 find_theorems GlobalDet Guard
 
@@ -1494,4 +1488,7 @@ lemma guard_pushed_in: \<open>g1 \<^bold>& (g2 \<^bold>& P ) = ( g1 \<and> g2 ) 
   by (simp add: Guard_def)
 
 
+
+lemma skip_seq2:\<open>g1 \<^bold>& (P \<^bold>; Q \<^bold>; (a\<rightarrow> Skip)) \<^bold>; R = g1 \<^bold>& (P \<^bold>; Q \<^bold>; a\<rightarrow> R)\<close>
+  by (metis Guard_def SKIP_Seq STOP_Seq Seq_assoc write0_Seq)
 end
