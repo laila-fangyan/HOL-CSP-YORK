@@ -318,6 +318,12 @@ next
     done
 qed
 
+lemma read_prefix_proving_Mndetprefix_ref :
+  assumes "inj c"  "\<And> v. a \<in> UNIV \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q v "
+  shows  \<open> (\<sqinter>a \<in> UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
+  by (simp add: assms(1,2) read_proving_Mndetprefix_UNIV_ref)
+
+
 
 lemma iterate_F_imp_GlobalNdet_iterations_F :
   \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>F Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F Q\<close>
@@ -439,11 +445,19 @@ lemma \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^s
 
 thm mono_Det_FD
 
-lemma \<open> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> P\<close>
+lemma proc_plus_prefix_ref: \<open> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> P\<close>
   apply (unfold write0_def)
   apply (rule trans_FD[OF _ iterate_FD_imp_GlobalNdet_iterations_FD[of \<open>Suc 0\<close> \<open>P\<close>]])
   by (simp_all add: prefix_proving_Mndetprefix_UNIV_ref(2))
-      
+
+lemma proc_plus_read_prefix_ref: 
+  assumes "inj c"  "\<And> v. P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q v "
+  shows  \<open>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
+  by (metis (mono_tags, lifting) GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' Mndetprefix_GlobalNdet assms(1,2)
+      dual_order.refl eat_lemma eat_read_lemma empty_not_UNIV mono_GlobalNdet_FD_const trans_FD)
+
+
+
 lemma \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P\<close> if \<open>P = (a \<rightarrow> b \<rightarrow> P)\<close>
   apply (rule trans_FD[OF _ iterate_FD_imp_GlobalNdet_iterations_FD[of \<open>Suc (Suc 0)\<close> \<open>P\<close>]])
     apply simp_all
@@ -934,6 +948,10 @@ lemma biextchoic_normalization_nguard_prefix[normalisation]:
   (is "?lhs = ?rhs")
   using biextchoic_normalization_nguard by blast
 
+
+
+
+
 find_theorems GlobalDet Guard
 
 
@@ -1388,6 +1406,65 @@ text\<open>can @term{\<triangle>} be normalized? for the pattern in Trans : SSTO
   thm mono_Interrupt_D_right
 
 
+
+
+lemma interrupt_ref:
+  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P" and "Q = a \<rightarrow> Q"
+  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  Q \<triangle> P"
+proof (unfold refine_defs, safe)
+  show \<open>(t, Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> (t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t Y
+  proof (induct t)
+    from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P\<close> show \<open>([], Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> ([], Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+      apply (subst (asm) \<open>Q = a \<rightarrow> Q\<close>)
+      apply (simp add: refine_defs write0_projs F_Interrupt GlobalNdet_iterations'_def F_GlobalNdet F_iterate_Mndetprefix_UNIV subset_iff)
+      by (metis append_is_Nil_conv is_processT6_TR is_processT8 list.size(3) self_append_conv2)
+  next
+    fix e t Y assume hyp : \<open>(t, Y) \<in> \<F> (Q \<triangle> P) \<Longrightarrow> (t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+    assume \<open>(e # t, Y) \<in> \<F> (Q \<triangle> P)\<close>
+    hence \<open>(e # t, Y) \<in> \<F> ((a \<rightarrow> Q) \<triangle> P)\<close> by (subst (asm) \<open>Q = a \<rightarrow> Q\<close>) simp
+    then consider \<open>(e # t, Y) \<in> \<F> P\<close> | \<open>e = ev a\<close> \<open>(t, Y) \<in> \<F> (Q \<triangle> P)\<close>
+      by (auto simp add: Interrupt_write0 F_Det F_write0)
+    thus \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+    proof cases
+      assume \<open>(e # t, Y) \<in> \<F> P\<close>
+      with \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+        by (simp add: refine_defs subset_iff)
+    next
+      assume \<open>e = ev a\<close> \<open>(t, Y) \<in> \<F> (Q \<triangle> P)\<close>
+      from this(2)[THEN hyp] have \<open>(t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> .
+      thus \<open>(e # t, Y) \<in> \<F> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+        apply (auto simp add: \<open>e = ev a\<close> GlobalNdet_iterations'_def F_GlobalNdet F_iterate_Mndetprefix_UNIV)
+        by (metis append_Cons event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.discI(1) tickFree_Cons_iff)
+    qed
+  qed
+next
+  show \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t
+  proof (induct t)
+    from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>[] \<in> \<D> (Q \<triangle> P) \<Longrightarrow> [] \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+      by (simp add: refine_defs subset_iff D_Interrupt GlobalNdet_iterations'_def D_GlobalNdet D_iterate_Mndetprefix_UNIV)
+        (metis Nil_is_append_conv Nil_notin_D_Mprefix assms(2) write0_def)
+  next
+    fix e t assume hyp : \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+    assume \<open>e # t \<in> \<D> (Q \<triangle> P)\<close>
+    hence \<open>e # t \<in> \<D> ((a \<rightarrow> Q) \<triangle> P)\<close> by (subst (asm) \<open>Q = a \<rightarrow> Q\<close>) simp
+    hence \<open>e # t \<in> \<D> P \<or> t \<in> \<D> (Q \<triangle> P)\<close>
+      by (auto simp add: D_Interrupt write0_projs)
+    thus \<open>e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+    proof (elim disjE)
+      from \<open>X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P\<close> show \<open>e # t \<in> \<D> P \<Longrightarrow> e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+        by (simp add: refine_defs subset_iff)
+    next
+      show \<open>t \<in> \<D> (Q \<triangle> P) \<Longrightarrow> e # t \<in> \<D> (X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close>
+        by (auto simp add: GlobalNdet_iterations'_def D_GlobalNdet D_iterate_Mndetprefix_UNIV dest!: hyp)
+          (metis D_imp_front_tickFree \<open>e # t \<in> \<D> (Q \<triangle> P)\<close> append.left_neutral
+            append_Cons front_tickFree_nonempty_append_imp is_processT7)
+    qed
+  qed
+qed
+   
+
+
+
 lemma interrupt_ddf:
   assumes  P_def:"P = share \<rightarrow> P" and  Q_def:"Q = a \<rightarrow> Q"
   shows "deadlock_free (P \<triangle> Q)"
@@ -1407,6 +1484,11 @@ proof -
     oops
 
 
+lemma guard_pushed_in: \<open>g1 \<^bold>& (g2 \<^bold>& P ) = ( g1 \<and> g2 ) \<^bold>& P\<close>
+  by (simp add: Guard_def)
 
 
+
+lemma skip_seq2:\<open>g1 \<^bold>& (P \<^bold>; Q \<^bold>; (a\<rightarrow> Skip)) \<^bold>; R = g1 \<^bold>& (P \<^bold>; Q \<^bold>; a\<rightarrow> R)\<close>
+  by (metis Guard_def SKIP_Seq STOP_Seq Seq_assoc write0_Seq)
 end
