@@ -176,6 +176,10 @@ where
 \<close>
 
 
+lemma \<open>(a\<rightarrow> P ) \<^bold>; Q = a \<rightarrow> (P \<^bold>; Q)\<close>
+  by (simp add: write0_Seq)
+
+
 lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
   by (metis Trans_ex1.SSTOP.unfold deadlock_free_implies_lifelock_free ex1_m' lifelock_free_is_non_terminating non_terminating_Seq)
 
@@ -209,7 +213,7 @@ lemma SSTOP_refine:
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
   by (meson interrupt_ref Trans_ex1.SSTOP.unfold assms)
 
-  
+  (*
 (*this is a valid proof*)
 lemma Trans_ex1_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n)  \<close>
@@ -242,7 +246,7 @@ lemma Trans_ex1_ddlf:
   done
 
 
-
+*)
 
 
 method deadlock_free' uses P_def assms=
@@ -441,12 +445,12 @@ method deadlock_free_trans uses P_def assms=
 , (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma write0_Seq)+
 )
 
-(*
+
 lemma Trans_ex1_ddlf_auto:
  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n) \<close>
   by (deadlock_free_trans P_def: Trans_ex1.simps)
 
-*)
+
 thm Trans_ex1.simps
 
 (*TO DO: This method needs to be updated, as it uses lemma [simp]: "(SSTOP \<triangle> Q) \<^bold>; R = SSTOP \<triangle> (Q \<^bold>; R)"*)
@@ -541,6 +545,6 @@ lemma Trans_ddlf:
  *)
 
 end
-end
+
 
 

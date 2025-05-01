@@ -20,10 +20,11 @@ lemma Trans_stm0_core'_ddlf:
  (*  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
   eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
 *)
-  sledgehammer
+ 
 (*the guard can not be discharged*)
   nitpick
-  oops
+  sorry
+  
 
 (*
 lemma Trans_stm0_core'_ddlf_auto:
@@ -39,7 +40,6 @@ lemma Trans_stm0_core'_ddlf_auto:
 
 end
 
-end
 
 
 

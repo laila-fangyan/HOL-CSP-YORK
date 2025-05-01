@@ -1,5 +1,5 @@
 theory Law_Interrupt_Seq
-  imports "HOL-CSP_OpSem.initials"
+  imports "HOL-CSP_OpSem.Initials"
 begin
 
 

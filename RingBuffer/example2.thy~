@@ -76,9 +76,7 @@ datatype chan_event  =
 "enter_s1_stm3"  |"entered_s1_stm3"  |"interrupt_s1_stm3"  |"enteredL_s1_stm3"  |"enteredR_s1_stm3" 	
  
  
-locale Trans =
-  fixes d :: nat
-  
+locale Trans
 begin
 
 fixrec  
@@ -87,12 +85,13 @@ Terminate   :: "chan_event process"              and
 Trans_stm3 :: "NIDS_stm3 \<rightarrow> chan_event process"  and
 Trans_stm3_core :: "NIDS_stm3 \<rightarrow> chan_event process"  and
 Trans_stm3_core' :: "NIDS_stm3 \<rightarrow> chan_event process" and
-Trans_stm3_core'' :: "NIDS_stm3 \<rightarrow> chan_event process"
+Trans_stm3_core'' :: "NIDS_stm3 \<rightarrow> chan_event process" and
+Trans_stm3_core''' :: "NIDS_stm3 \<rightarrow> chan_event process"
 where
 [simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
 [simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>|
 
-[simp del] :\<open>Trans_stm3 \<cdot>n= 
+[simp del] :\<open>Trans_stm3 \<cdot>n=  
 	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> ((((((
      (n = NID_i0_stm3) \<^bold>& ((internal__stm3\<^bold>.NID_i0_stm3 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm3 \<rightarrow> Trans_stm3\<cdot>NID_s0_stm3))
 	  \<box>
@@ -148,6 +147,22 @@ where
 	  ))
 	 )) \<close>
 
+|
+
+[simp del] :\<open>Trans_stm3_core''' \<cdot>n= 
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((
+   ( (n = NID_i0_stm3) \<^bold>& ((internal__stm3\<^bold>.NID_i0_stm3 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm3 \<rightarrow> Skip)) \<^bold>; Trans_stm3_core'''\<cdot>NID_s0_stm3)
+	  \<box>
+	  ((n = NID_s0_stm3) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm3\<^bold>.NID_s0_stm3 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm3 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm3 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm3 \<rightarrow> Skip))))))) \<^bold>; Trans_stm3_core'''\<cdot>NID_s1_stm3) 
+)
+	  \<box>
+	   ((n = NID_s1_stm3) \<^bold>& ((v1 < 1) \<^bold>& (((internal__stm3\<^bold>.NID_s1_stm3 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm3 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm3 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm3 \<rightarrow> Skip))))))) \<^bold>; Trans_stm3_core'''\<cdot>NID_s0_stm3)
+)
+	  \<box>
+	   ((n = NID_s1_stm3) \<^bold>& ((a__in\<^bold>.NID_s1_stm3 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm3 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm3 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm3 \<rightarrow> Skip)))))\<^bold>; Trans_stm3_core'''\<cdot>NID_s0_stm3)
+)
+	  ))
+	 )) \<close>
 
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
   by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
@@ -215,20 +230,25 @@ apply (rule SSTOP_refine_plus)
   apply (simp add: inj_def)
   apply (rule generalized_refine_guarded_extchoice_star)
   
-  apply (simp add: atLeast0_atMost_Suc)
+   apply (simp add: atLeast0_atMost_Suc)
   nitpick
-(*nitpick returns a counterexample, example1_core' is deadlock*)
+(*nitpick returns a counterexample, how do we set v1 as 1*)
   oops
 
 
 
-lemma Trans_stm3_core''_ddlf:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm3_core''\<cdot>n)  \<close>
+lemma Trans_stm3_core'''_ddlf:
+  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm3_core'''\<cdot>n)  \<close>
   (* Apply induction *)
-  apply (rule df_step_param_intro[OF Trans_stm3_core''.simps])
+  apply (rule df_step_param_intro[OF Trans_stm3_core'''.simps])
   (* Normalisation *)
-  apply (simp add: bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
-apply (rule SSTOP_refine_plus)
+  apply (simp add: skip_seq )
+(*trans not fully pushed in, TBD*)
+
+
+  apply (simp add: guard_pushed_in bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+
+  apply (rule SSTOP_refine_plus)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
 
