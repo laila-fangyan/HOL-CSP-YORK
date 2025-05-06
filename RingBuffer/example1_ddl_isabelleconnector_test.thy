@@ -1,6 +1,5 @@
 theory example1_ddl_isabelleconnector_test 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq  example1_ddl (*Example1_ddlf_no_final can not be imported, why?*)
+	imports   DeadlockFreedom  example1_ddl (*Example1_ddlf_no_final can not be imported, why?*)
 begin
 (*
 lemma Trans_stm0_core'_ddlf:
@@ -29,7 +28,7 @@ lemma Trans_stm0_core'_ddlf:
 
 lemma Trans_stm0_core'_ddlf_auto:
  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans.Trans_stm0_core'\<cdot>n)\<close>
-  by (Trans.deadlock_free' P_def: Trans.Trans_stm0_core'.simps)
+  apply (Trans.deadlock_free' P_def: Trans.Trans_stm0_core'.simps)
 (*is there a way to nitpick failed proof method?*)
 
 

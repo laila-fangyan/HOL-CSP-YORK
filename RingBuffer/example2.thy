@@ -1,26 +1,6 @@
 theory example2 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
+	imports  DeadlockFreedom 
 begin
-
-default_sort type
-
-
-no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
-no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
-
-no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
-
-abbreviation "dot"    :: "['a \<Rightarrow> 'b, 'a, 'b process] \<Rightarrow> 'b process"
-  where      "dot c
- a P \<equiv> write c a P"
-
-syntax   "_dot"  :: "[id, logic, 'a process] => 'a process"
-                                        ("(3(_\<^bold>._) /\<rightarrow> _)" [0,0,78] 78)
-translations
- 
-  "_dot c p P"     \<rightleftharpoons> "CONST dot c p P"
-
 
 subsection \<open> Model \<close>
 
@@ -163,9 +143,15 @@ where
 )
 	  ))
 	 )) \<close>
+(*
+Trans_stm3_core' has the pattern: (enter_si \<rightarrow> Trans\<cdot>si)
+Trans_stm3_core''' has the pattern: (enter_si \<rightarrow> Skip);Trans\<cdot>si
+Trans_stm3_core' is simpler for model transformation and ddlf proof
+*)
+
 
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold prefix_recursive_ddlf non_terminating_is_empty_ticks_of)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
@@ -237,37 +223,6 @@ apply (rule SSTOP_refine_plus)
 
 
 
-lemma Trans_stm3_core'''_ddlf:
-  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm3_core'''\<cdot>n)  \<close>
-  (* Apply induction *)
-  apply (rule df_step_param_intro[OF Trans_stm3_core'''.simps])
-  (* Normalisation *)
-  apply (simp add: skip_seq )
-(*trans not fully pushed in, TBD*)
-
-
-  apply (simp add: guard_pushed_in bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
-
-  apply (rule SSTOP_refine_plus)
-  (* Rewrite the goal to allow multiple events *)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
-apply (rule read_prefix_proving_Mndetprefix_ref    )
-   apply (simp add: inj_def)
-  apply (rule generalized_refine_guarded_extchoice_star)
-  nitpick
-   apply (simp add: atLeast0_atMost_Suc)
-  using NIDS_stm3.exhaust apply blast
-  (* Rewrite the goal to allow multiple events *)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
-  (* Simplify away the events in the cases not inclucing interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
-  eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-
-(*the guard can not be discharged*)
-  nitpick
-  oops
 end
 end
 

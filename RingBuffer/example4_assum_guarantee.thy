@@ -1,29 +1,10 @@
 theory example4_assum_guarantee 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
+	imports   DeadlockFreedom
 begin
-
-default_sort type
-
-
-no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
-no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
-
-no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
-
-abbreviation "dot"    :: "['a \<Rightarrow> 'b, 'a, 'b process] \<Rightarrow> 'b process"
-  where      "dot c
- a P \<equiv> write c a P"
-
-syntax   "_dot"  :: "[id, logic, 'a process] => 'a process"
-                                        ("(3(_\<^bold>._) /\<rightarrow> _)" [0,0,78] 78)
-translations
- 
-  "_dot c p P"     \<rightleftharpoons> "CONST dot c p P"
 
 
 subsection \<open> Model \<close>
-
+text\<open>this is the assumption-guarantee version of example 4.\<close>
 
 	
 	
@@ -73,16 +54,29 @@ datatype chan_event  =
 "enter_s0_stm4"  |"entered_s0_stm4"  |"interrupt_s0_stm4"  |"enteredL_s0_stm4"  |"enteredR_s0_stm4"  |	
 \<comment> \<open>state_channel_in_stmbd_s1_stm4\<close>
 
-"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" 	
-
+"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" | aviol | gviol
                               
  
 locale Trans 
 begin
 
+fixrec 
+  AVIOL       :: "chan_event process" where
+  [simp del] :\<open>AVIOL = aviol \<rightarrow> AVIOL\<close>
+
+abbreviation "assume b P \<equiv> (if b then P else AVIOL)"
+abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
+
+
 fixrec  
 SSTOP       :: "chan_event process"              and
-Terminate   :: "chan_event process"              and
+Terminate   :: "chan_event process"              
+where
+[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>
+
+
+fixrec  
  
 Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"   and
  
@@ -90,8 +84,6 @@ Trans_stm4' :: "NIDS_stm4 \<rightarrow> chan_event process"  and
  
 Trans_stm4_core :: "NIDS_stm4 \<rightarrow> chan_event process"
 where
-[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
-[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close> |
 [simp del] :\<open>Trans_stm4\<cdot>n = 
 	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((( 
     (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))
@@ -127,8 +119,8 @@ where
 
  |
 [simp del] :\<open>Trans_stm4_core\<cdot>n = 
-	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((( 
-    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core\<cdot>NID_s0_stm4))
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (assume (v1 \<ge> 1) (((((( 
+    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> guar ((1::int) \<ge> 1) (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core\<cdot>NID_s0_stm4))
 	  \<box>
 	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4_core\<cdot>NID_s1_stm4))))))))
 	  \<box>
@@ -136,27 +128,31 @@ where
 	  \<box>
 	   (n = NID_s1_stm4) \<^bold>& ((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core\<cdot>NID_s0_stm4))))))
 	 ) )
-	 ))) \<close>
+	 )))) \<close>
 
 
 
 
 
 lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_Seq non_terminating_is_empty_ticks_of)
+  by (meson AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S SSTOP.simps non_terminating_Seq non_terminating_is_empty_ticks_of prefix_recursive_ddlf)
 
 
 
 (*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
+  by (meson Trans.SSTOP.unfold deadlock_free_implies_lifelock_free lifelock_free_is_non_terminating prefix_recursive_ddlf)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
 
+lemma prefix_gviol_no_initial_tick : \<open> (gviol\<rightarrow> STOP)\<^sup>0 \<inter> range tick = {}\<close>
+  by (simp add: image_iff initials_write0)
 
-lemma write_prefix_Skip_no_initial_tick : \<open>\<forall>a\<in>A .(c\<^bold>.a \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
+
+lemma write_prefix_Skip_no_initial_tick : \<open>(c\<^bold>.a \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: prefix_Skip_no_initial_tick write_is_write0)
+
 
 lemma read_prefix_Skip_no_initial_tick : \<open> (c\<^bold>?a\<in>A \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (smt (verit, best) Int_emptyI event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.simps(4) image_iff initials_Mprefix read_def)
@@ -180,36 +176,41 @@ lemma SSTOP_refine_plus:
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
   by (metis GlobalNdet_iterations'_Mndetprefix SSTOP.unfold assms interrupt_ref)
 
-  
-(*this is a valid proof*)
-lemma Trans_ex1_ddlf:
- (* assumes\<open> 1 \<le> v1 \<close>
-  shows *)
+
+lemma Trans_ex4_ddlf:
+
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm4_core\<cdot>n)  \<close>
   (* Apply induction *)
   apply (rule df_step_param_intro[OF Trans_stm4_core.simps])
   (* Normalisation *)
-  apply (simp add: guard_pushed_in bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
   apply (rule SSTOP_refine_plus)
-
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
   apply (rule read_proving_Mndetprefix_ref)
-     apply (simp add: inj_def)
-
-  (* Simplify away the events in the cases not inclucing interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+  apply (simp add: inj_def)
+  apply simp+
+  apply (simp add:  bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-  
-      
-      apply (simp add: atLeast0_atMost_Suc)
-      defer
-      defer
-      (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
- 
-      apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)+
+  (*discharge the guard*)
+  using NIDS_stm4.exhaust atLeast0AtMost lessThan_Suc lessThan_Suc_atMost apply auto[1]
 
-  oops
+  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq     )
+  apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
+
+  (*the 4 lines below can be replaced by the 2 lines above
+  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq    )
+  apply (rule SSTOP_refine)
+  apply (simp add: write0_Seq write_is_write0)
+  apply (simp add: GlobalNdet_refine_no_step eat_lemma)
+*)
+
+  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq   write0_Seq   )
+  apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
+  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq   write0_Seq   )
+  apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
+
+  apply (subst AVIOL_def)
+  oops                                       
 
 
 

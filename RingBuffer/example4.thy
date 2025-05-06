@@ -1,31 +1,11 @@
 theory example4 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq
+	imports  DeadlockFreedom
 begin
-
-default_sort type
-
-
-no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
-no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
-
-no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
-
-abbreviation "dot"    :: "['a \<Rightarrow> 'b, 'a, 'b process] \<Rightarrow> 'b process"
-  where      "dot c
- a P \<equiv> write c a P"
-
-syntax   "_dot"  :: "[id, logic, 'a process] => 'a process"
-                                        ("(3(_\<^bold>._) /\<rightarrow> _)" [0,0,78] 78)
-translations
- 
-  "_dot c p P"     \<rightleftharpoons> "CONST dot c p P"
-
 
 subsection \<open> Model \<close>
 
 
-	
+text\<open>example 4 is derived from example2 by adding action v1 = 1 \<close>
 	
 datatype NIDS_stm4 = 
 	NID_i0_stm4 | 
@@ -143,19 +123,19 @@ where
 
 
 lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_Seq non_terminating_is_empty_ticks_of)
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold prefix_recursive_ddlf non_terminating_Seq non_terminating_is_empty_ticks_of)
 
 
 
 (*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold prefix_recursive_ddlf non_terminating_is_empty_ticks_of)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
 
 
-lemma write_prefix_Skip_no_initial_tick : \<open>\<forall>a\<in>A .(c\<^bold>.a \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
+lemma write_prefix_Skip_no_initial_tick : \<open>(c\<^bold>.a \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: prefix_Skip_no_initial_tick write_is_write0)
 
 lemma read_prefix_Skip_no_initial_tick : \<open> (c\<^bold>?a\<in>A \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
@@ -180,9 +160,9 @@ lemma SSTOP_refine_plus:
   shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
   by (metis GlobalNdet_iterations'_Mndetprefix SSTOP.unfold assms interrupt_ref)
 
-  
-(*this is a valid proof*)
-lemma Trans_ex1_ddlf:
+
+text\<open>this lemma can not be approved, we need asumption-guarantee strategy\<close> 
+lemma Trans_ex4_ddlf:
  (* assumes\<open> 1 \<le> v1 \<close>
   shows *)
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm4_core\<cdot>n)  \<close>
@@ -193,23 +173,28 @@ lemma Trans_ex1_ddlf:
   apply (rule SSTOP_refine_plus)
 
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
   apply (rule read_proving_Mndetprefix_ref)
-     apply (simp add: inj_def)
+  apply (simp add: inj_def)
 
   (* Simplify away the events in the cases not inclucing interrupt *)
-   apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
+  apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3)
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-  
+  apply (simp add: atLeast0_atMost_Suc)
       
-      apply (simp add: atLeast0_atMost_Suc)
-      defer
-      defer
-      (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
- 
-      apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)+
+  defer
+  defer
 
-  oops
+  (* Simplify the  interrupt using non_terminating_Interrupt_Seq*)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)+
+  defer
+  apply (subst non_terminating_Interrupt_Seq)
+  apply (simp add: SSTOP_nonTerm)
+  apply (rule write_prefix_Skip_no_initial_tick)
+  apply (rule SSTOP_refine)
+  apply (simp add: GlobalNdet_refine_no_step eat_lemma write0_Seq write_is_write0)
+    
+
+  oops                                       
 
 
 

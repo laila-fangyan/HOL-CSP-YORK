@@ -1,6 +1,5 @@
 theory Example1_ddlf_no_final_isabelleconnector_test
-	  imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete" "HOL-CSP.Process"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq Example1_ddlf_no_final
+  imports  DeadlockFreedom  Example1_ddlf_no_final
 begin
                                  
 
@@ -18,7 +17,8 @@ method deadlock_free' uses P_def assms=
 
 lemma Trans_ex1_ddlf_auto:
    \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1.Trans_ex1\<cdot>n)\<close>
-  by (deadlock_free' P_def: Trans_ex1.Trans_ex1.simps)
+  apply (deadlock_free' P_def: Trans_ex1.Trans_ex1.simps)
+  nitpick
 
 
 

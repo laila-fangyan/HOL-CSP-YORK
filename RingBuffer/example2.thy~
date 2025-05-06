@@ -226,7 +226,7 @@ apply (rule SSTOP_refine_plus)
   (* Rewrite the goal to allow multiple events *)
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
 
-  apply (rule read_prefix_proving_Mndetprefix_ref    )
+  apply (rule read_prefix_proving_Mndetprefix_ref)
   apply (simp add: inj_def)
   apply (rule generalized_refine_guarded_extchoice_star)
   
