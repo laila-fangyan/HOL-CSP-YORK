@@ -56,22 +56,34 @@ datatype chan_event  =
 \<comment> \<open>state_channel_in_stmbd_f0_stm1\<close>
 
 "enter_f0_stm1"  |"entered_f0_stm1"  |"interrupt_f0_stm1"  |"enteredL_f0_stm1"  |"enteredR_f0_stm1" 	
+        
+definition chan_event_set :: "chan_event set" where
+  "chan_event_set = UNIV"
+value "UNIV :: chan_event set"
 
-                              
- 
-locale Trans =
-fixes d :: nat
+locale Trans
 begin
+(*
+fixrec  
+RUN         :: "chan_event process"
+where
+
+[simp del] :\<open>RUN = \<sqinter>a \<in> chan_event_set \<rightarrow> RUN\<close>
+*)
 
 fixrec  
 SSTOP       :: "chan_event process"              and
-Terminate   :: "chan_event process"              and
+Terminate   :: "chan_event process"             
+where
+[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>
+
+
+fixrec  
 Trans_stm1 :: "NIDS_stm1 \<rightarrow> chan_event process"  and
 Trans_stm1_core :: "NIDS_stm1 \<rightarrow> chan_event process"  and
 Trans_stm1_core' :: "NIDS_stm1 \<rightarrow> chan_event process"
 where
-[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
-[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>|
 
 [simp del] :\<open>Trans_stm1\<cdot>n = 
 	((((((
@@ -180,7 +192,7 @@ lemma Trans_stm1_core'_ddlf:
 
 
 lemma Trans_stm1_core'_non_term_ddlf:
- assumes P_def: \<open>\<And> n. P n =  (Trans_stm1_core'\<cdot>n \<^bold>; SSTOP )\<close>
+ assumes P_def: \<open>\<And> n. P n =  (Trans_stm1_core'\<cdot>n \<^bold>; RUN chan_event_set )\<close>
   shows \<open>deadlock_free( \<sqinter> n \<in> UNIV.  P n )\<close>
   apply (rule df_step_param_intro[OF P_def])
   apply (subst Trans_stm1_core'.simps)  

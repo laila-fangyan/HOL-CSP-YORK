@@ -28,7 +28,14 @@ lemma Trans_stm0_core'_ddlf:
 
 lemma Trans_stm0_core'_ddlf_auto:
  \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans.Trans_stm0_core'\<cdot>n)\<close>
-  apply (Trans.deadlock_free' P_def: Trans.Trans_stm0_core'.simps)
+  apply (rule df_step_param_intro[OF Trans.Trans_stm0_core'.simps])
+ apply (simp add: bi_extchoice_norm  biextchoic_normalization biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+ apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym])
+ apply (auto intro!:prefix_proving_Mndetprefix_UNIV_ref(3) generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step)
+  apply ( insert NIDS_stm0.exhaust atLeast0AtMost, auto)
+  apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)+
+)
+
 (*is there a way to nitpick failed proof method?*)
   oops
 

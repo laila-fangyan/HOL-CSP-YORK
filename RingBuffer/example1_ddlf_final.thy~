@@ -1,32 +1,9 @@
 theory example1_ddlf_final 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq 
+	imports   DeadlockFreedom 
 begin
-
-default_sort type
-
-
-no_notation floor (\<open>\<lfloor>_\<rfloor>\<close>)
-no_notation ceiling (\<open>\<lceil>_\<rceil>\<close>)
-
-no_notation Cons  ("_ \<cdot>/ _" [66,65] 65)
-
-abbreviation "dot"    :: "['a \<Rightarrow> 'b, 'a, 'b process] \<Rightarrow> 'b process"
-  where      "dot c
- a P \<equiv> write c a P"
-
-syntax   "_dot"  :: "[id, logic, 'a process] => 'a process"
-                                        ("(3(_\<^bold>._) /\<rightarrow> _)" [0,0,78] 78)
-translations
- 
-  "_dot c p P"     \<rightleftharpoons> "CONST dot c p P"
-
 
 subsection \<open> Model \<close>
 
-
-	
-	
 datatype NIDS_stm1 = 
 	NID_i0_stm1 | 
 	NID_s0_stm1 | 
@@ -140,7 +117,7 @@ where
 	  ) \<close>
 
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold ex1_m' non_terminating_is_empty_ticks_of)
+  by (metis AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S Trans.SSTOP.unfold prefix_recursive_ddlf non_terminating_is_empty_ticks_of)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
@@ -212,7 +189,7 @@ lemma Trans_stm1_core'_non_term_ddlf:
 
   
   apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-
+(*We need to modify induction*)
 (* do we need a generalized norm_extchoice_seq? I didn't manage to define the lemma*)
   oops
 end

@@ -1,6 +1,5 @@
 theory example1_ddl_isabelleconnector_test 
-	imports "HOLCF-Library.Nat_Discrete" "HOLCF-Library.Int_Discrete"
-          "HOLCF-Library.List_Cpo"  DeadlockFreedom_Automation Law_Interrupt_Seq  example1_ddl (*Example1_ddlf_no_final can not be imported, why?*)
+	imports   DeadlockFreedom  example1_ddl (*Example1_ddlf_no_final can not be imported, why?*)
 begin
 (*
 lemma Trans_stm0_core'_ddlf:

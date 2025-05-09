@@ -56,17 +56,20 @@ datatype chan_event  =
 
 "enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" | aviol | gviol
                               
- 
 locale Trans 
 begin
 
+(*
 fixrec 
   AVIOL       :: "chan_event process" where
   [simp del] :\<open>AVIOL = aviol \<rightarrow> AVIOL\<close>
+*)
 
-abbreviation "assume b P \<equiv> (if b then P else AVIOL)"
+abbreviation "assume b Q P \<equiv> (if b then P else aviol \<rightarrow> Q)"
 abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
-
+(*can not be defined as a fun in CZT as process is not a type in CZT
+so we use the RHS in M2M and, LHS in M2T
+*)
 
 fixrec  
 SSTOP       :: "chan_event process"              and
@@ -82,7 +85,9 @@ Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"   and
  
 Trans_stm4' :: "NIDS_stm4 \<rightarrow> chan_event process"  and
  
-Trans_stm4_core :: "NIDS_stm4 \<rightarrow> chan_event process"
+Trans_stm4_core :: "NIDS_stm4 \<rightarrow> chan_event process" and
+ 
+Trans_stm4_core' :: "NIDS_stm4 \<rightarrow> chan_event process"
 where
 [simp del] :\<open>Trans_stm4\<cdot>n = 
 	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((( 
@@ -102,7 +107,7 @@ where
  |
 [simp del] :\<open>Trans_stm4'\<cdot>n = 
 	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((( 
-    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s0_stm4))
+    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))  \<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s0_stm4) )
 	  \<box>
 	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s1_stm4))))))))
 	  \<box>
@@ -119,7 +124,7 @@ where
 
  |
 [simp del] :\<open>Trans_stm4_core\<cdot>n = 
-	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (assume (v1 \<ge> 1) (((((( 
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (assume (v1 \<ge> 1) (Trans_stm4_core\<cdot>n) (((((( 
     (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> guar ((1::int) \<ge> 1) (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core\<cdot>NID_s0_stm4))
 	  \<box>
 	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4_core\<cdot>NID_s1_stm4))))))))
@@ -129,6 +134,23 @@ where
 	   (n = NID_s1_stm4) \<^bold>& ((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core\<cdot>NID_s0_stm4))))))
 	 ) )
 	 )))) \<close>
+
+
+ |
+[simp del] :\<open>Trans_stm4_core'\<cdot>n = 
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (if (v1 \<ge> 1) then (Trans_stm4_core'\<cdot>n)
+    else (((((( 
+    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (if ((1::int) \<ge> 1) then(set_v1\<^bold>!1 \<rightarrow> Skip) else STOP)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core'\<cdot>NID_s0_stm4))
+	  \<box>
+	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s1_stm4))))))))
+	  \<box>
+	   (n = NID_s1_stm4) \<^bold>& ((v1 < 1) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s0_stm4))))))))
+	  \<box>
+	   (n = NID_s1_stm4) \<^bold>& ((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s0_stm4))))))
+	 ) )
+	 )
+))) \<close>
+
 
 
 
@@ -156,6 +178,11 @@ lemma write_prefix_Skip_no_initial_tick : \<open>(c\<^bold>.a \<rightarrow>  Ski
 
 lemma read_prefix_Skip_no_initial_tick : \<open> (c\<^bold>?a\<in>A \<rightarrow>  Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (smt (verit, best) Int_emptyI event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.simps(4) image_iff initials_Mprefix read_def)
+
+
+lemma \<open>SSTOP \<triangle> ((a \<rightarrow> Skip) \<^bold>; STOP)\<^bold>;  (enter_s0_stm4 \<rightarrow>  Skip) = SSTOP \<triangle> ((a \<rightarrow> Skip) \<^bold>; STOP)\<close>
+  by (metis SKIP_Seq SSTOP_nonTerm STOP_Seq Trans.prefix_Skip_no_initial_tick initials_write0 non_terminating_Interrupt_Seq
+      write0_Seq)
 
 lemma SSTOP_ddlf: 
   assumes P_def: \<open>SSTOP = share \<rightarrow> SSTOP\<close>
@@ -208,11 +235,7 @@ lemma Trans_ex4_ddlf:
   apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
   apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq   write0_Seq   )
   apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
-
-  apply (subst AVIOL_def)
-  oops                                       
-
-
+  done
 
 end
 end
