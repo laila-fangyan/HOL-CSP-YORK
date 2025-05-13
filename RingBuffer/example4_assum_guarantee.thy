@@ -67,6 +67,8 @@ fixrec
 
 abbreviation "assume b Q P \<equiv> (if b then P else aviol \<rightarrow> Q)"
 abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
+
+abbreviation "guar1 b c P Q \<equiv> (if b then P else if c then Q else  gviol \<rightarrow> STOP)"
 (*can not be defined as a fun in CZT as process is not a type in CZT
 so we use the RHS in M2M and, LHS in M2T
 *)
