@@ -53,7 +53,10 @@ datatype chan_event  =
 "enter_s0_stm4"  |"entered_s0_stm4"  |"interrupt_s0_stm4"  |"enteredL_s0_stm4"  |"enteredR_s0_stm4"  |	
 \<comment> \<open>state_channel_in_stmbd_s1_stm4\<close>
 
-"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" 	
+"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4"  |	
+\<comment> \<open>assumption-guarantee_violstm4\<close>
+
+"aviol"  |"gviol" 	
 
                               
  
@@ -69,27 +72,29 @@ abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
 
 
 fixrec  
-SSTOP       :: "chan_event process"              and
-Terminate   :: "chan_event process"              and
- 
-Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"
+  SSTOP       :: "chan_event process"              and
+  Terminate   :: "chan_event process"              
 where
 [simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
-[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>|
+[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>
+
+fixrec  
+Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"
+where
 [simp del] :\<open>Trans_stm4\<cdot>n = 
-	((SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((((n = NIDS_i0_stm4) \<^bold>& (((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NIDS_s0_stm4))))
+	((SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (assume manual_input_assumption Trans_stm4\<cdot>n (((((((n = NID_i0_stm4) \<^bold>& (((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (guar manual_input_guarantee (set_v1\<^bold>!1 \<rightarrow> Skip))))\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))
 	  \<box>
-	  ((n = NIDS_s0_stm4) \<^bold>& ((((v1 \<ge> 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4\<cdot>NIDS_s1_stm4))))))))))
+	  ((n = NID_s0_stm4) \<^bold>& ((((v1 \<ge> 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s1_stm4))))))))))
 	  \<box>
-	  ((n = NIDS_s1_stm4) \<^bold>& ((((v1 < 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NIDS_s0_stm4))))))))))
+	  ((n = NID_s1_stm4) \<^bold>& ((((v1 < 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))))))))
 	  \<box>
-	  ((n = NIDS_s1_stm4) \<^bold>& (((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NIDS_s0_stm4))))))))
+	  ((n = NID_s1_stm4) \<^bold>& (((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))))))
 	  \<box>
 	  (share \<rightarrow> Trans_stm4\<cdot>n))
 	  \<box>
 	  (((interrupt_stm4 \<rightarrow> (SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip)))\<^bold>;  (SSTOP \<triangle> (exited_stm4 \<rightarrow> (terminate \<rightarrow> Skip))))
 	  \<box>
-	  (terminate \<rightarrow> Skip)))))) \<close>
+	  (terminate \<rightarrow> Skip))))))) \<close>
 
 end
 end

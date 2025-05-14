@@ -54,7 +54,9 @@ datatype chan_event  =
 "enter_s0_stm4"  |"entered_s0_stm4"  |"interrupt_s0_stm4"  |"enteredL_s0_stm4"  |"enteredR_s0_stm4"  |	
 \<comment> \<open>state_channel_in_stmbd_s1_stm4\<close>
 
-"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" | aviol | gviol
+"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" |
+\<comment> \<open>state_channel_in_stmbd_s1_stm4\<close>
+ "aviol" | "gviol"
                               
 locale Trans 
 begin
@@ -69,8 +71,8 @@ abbreviation "assume b Q P \<equiv> (if b then P else aviol \<rightarrow> Q)"
 abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
 
 abbreviation "guar1 b c P Q \<equiv> (if b then P else if c then Q else  gviol \<rightarrow> STOP)"
-(*can not be defined as a fun in CZT as process is not a type in CZT
-so we use the RHS in M2M and, LHS in M2T
+(*can not be defined as a fun in CZT because process is not a type in CZT
+so we implement the RHS in M2M and, LHS in M2T
 *)
 
 fixrec  
@@ -140,17 +142,17 @@ where
 
  |
 [simp del] :\<open>Trans_stm4_core'\<cdot>n = 
-	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (if (v1 \<ge> 1) then (Trans_stm4_core'\<cdot>n)
-    else (((((( 
-    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (if ((1::int) \<ge> 1) then(set_v1\<^bold>!1 \<rightarrow> Skip) else STOP)))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core'\<cdot>NID_s0_stm4))
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (if (v1 \<ge> 1) then 
+     ((((( 
+    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (if ((1::int) \<ge> 1) then(set_v1\<^bold>!1 \<rightarrow> Skip) else (gviol \<rightarrow> STOP))))\<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4_core'\<cdot>NID_s0_stm4))
 	  \<box>
 	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s1_stm4))))))))
 	  \<box>
 	   (n = NID_s1_stm4) \<^bold>& ((v1 < 1) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s0_stm4))))))))
 	  \<box>
 	   (n = NID_s1_stm4) \<^bold>& ((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4_core'\<cdot>NID_s0_stm4))))))
-	 ) )
-	 )
+	 ) 
+	 ) else (aviol \<rightarrow> Trans_stm4_core'\<cdot>n)
 ))) \<close>
 
 

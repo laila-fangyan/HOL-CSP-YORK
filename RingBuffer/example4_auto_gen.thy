@@ -44,7 +44,7 @@ datatype chan_event  =
 \<comment> \<open>event_channel_stmbd_stm4\<close>
 
 "a_in"  |"a_out"  |
-"a__in" "NIDS_stm4"  |	
+"a__in" "NIDS_stm4"  |	"b_in" | "c_in"  |
 \<comment> \<open>junction_channel_in_stmbd_i0_stm4\<close>
 
 "enter_i0_stm4"  |"interrupt_i0_stm4"  |	
@@ -53,35 +53,36 @@ datatype chan_event  =
 "enter_s0_stm4"  |"entered_s0_stm4"  |"interrupt_s0_stm4"  |"enteredL_s0_stm4"  |"enteredR_s0_stm4"  |	
 \<comment> \<open>state_channel_in_stmbd_s1_stm4\<close>
 
-"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4" 	
-| "aviol" | "gviol"
+"enter_s1_stm4"  |"entered_s1_stm4"  |"interrupt_s1_stm4"  |"enteredL_s1_stm4"  |"enteredR_s1_stm4"  |	
+\<comment> \<open>assumption-guarantee_viol_stm4\<close>
+
+"aviol"  |"gviol" 	
+
                               
  
 locale Trans 
 begin
 
-fixrec 
-  AVIOL       :: "chan_event process" where
-  [simp del] :\<open>AVIOL = aviol \<rightarrow> AVIOL\<close>
-
-abbreviation "assume b P \<equiv> (if b then P else AVIOL)"
+abbreviation "assume b Q P \<equiv> (if b then P else aviol \<rightarrow> Q)"
 abbreviation "guar b P \<equiv> (if b then P else gviol \<rightarrow> STOP)"
 
 
 fixrec  
-SSTOP       :: "chan_event process"              and
-Terminate   :: "chan_event process"              and
- 
-Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"
+  SSTOP       :: "chan_event process"              and
+  Terminate   :: "chan_event process"              
 where
 [simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
-[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>|
+[simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>
+
+fixrec  
+Trans_stm4 :: "NIDS_stm4 \<rightarrow> chan_event process"
+where
 [simp del] :\<open>Trans_stm4\<cdot>n = 
-	((SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((((n = NID_i0_stm4) \<^bold>& (((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (assume True (Trans_stm4\<cdot>n) (((((((n = NID_i0_stm4) \<^bold>& (((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (guar True (set_v1\<^bold>!1 \<rightarrow> Skip))))\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))
 	  \<box>
 	  ((n = NID_s0_stm4) \<^bold>& ((((v1 \<ge> 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s1_stm4))))))))))
 	  \<box>
-	  ((n = NID_s1_stm4) \<^bold>& ((((v1 < 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))))))))
+	  ((n = NID_s1_stm4) \<^bold>& ((((v1 < 1)) \<^bold>& (((internal__stm4\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> (((if (v1 < 1) then a_in else (if (v1 = 1) then b_in else c_in)) \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))))))))
 	  \<box>
 	  ((n = NID_s1_stm4) \<^bold>& (((a__in\<^bold>.NID_s1_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s0_stm4 \<rightarrow> Trans_stm4\<cdot>NID_s0_stm4))))))))
 	  \<box>
@@ -89,7 +90,8 @@ where
 	  \<box>
 	  (((interrupt_stm4 \<rightarrow> (SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip)))\<^bold>;  (SSTOP \<triangle> (exited_stm4 \<rightarrow> (terminate \<rightarrow> Skip))))
 	  \<box>
-	  (terminate \<rightarrow> Skip)))))) \<close>
+	  (terminate \<rightarrow> Skip))
+)))) \<close>
 
 end
 end
