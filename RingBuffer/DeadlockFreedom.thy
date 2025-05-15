@@ -382,9 +382,18 @@ proof -
         is_processT5_S7 length_0_conv length_Suc_conv less_irrefl subset_iff)
 qed
 
+
+lemma GlobalNdet_iterations_F_imp_deadlock_free_skip : \<open>deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>
+  by (simp add: GlobalNdet_iterations_F_imp_deadlock_free deadlock_free_imp_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S that)
+
+
 lemma GlobalNdet_iterations_FD_imp_deadlock_free :
   \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
   by (simp add: GlobalNdet_iterations_F_imp_deadlock_free leFD_imp_leF)
+
+lemma GlobalNdet_iterations_FD_imp_deadlock_free_skip :
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close>
+  by (simp add: GlobalNdet_iterations_FD_imp_deadlock_free deadlock_free_imp_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S)
 
 text \<open>This would be a useful lemma to have, because it would allow us to have an operator that simply does n event steps.  SKIP updated to Skip 25Feb\<close>
 lemma iterate_is_iterate_SKIP_Seq :  \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>Skip \<^bold>; P\<close>
@@ -481,6 +490,14 @@ lemma df_step_param_intro:
   apply (simp add: assms(2) mono_GlobalNdet_FD_const)
   done
 
+
+lemma df_step_param_intro_skip:
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. (GlobalNdet UNIV P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S (\<sqinter> n \<in> UNIV. P n)"
+  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free_skip)
+  apply (subst P_def)  back
+  apply (simp add: assms(2) mono_GlobalNdet_FD_const)
+  done
 
 lemma prefix_recursive_ddlf(*was named ex1_m'*):
   assumes P_def: \<open>P = (a \<rightarrow> P)\<close>
