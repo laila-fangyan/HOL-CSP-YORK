@@ -273,7 +273,7 @@ next
     assume hyp : \<open>deadlock_free (X n)\<close> for n
     show \<open>deadlock_free (?f X n)\<close>
       apply (cases n)
-      apply (simp_all add: write_Seq)
+
       by (auto simp add: hyp deadlock_free_SSTOP deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_SSTOP intro!: deadlock_free_introset deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_introset)
   qed
 qed
@@ -457,8 +457,7 @@ lemma norm_guarded_extchoice_seq_gen:
 
 
 
-lemma \<open>
-Trans_ex1'' =
+lemma \<open>Trans_ex1'' =
 Abs_cfun (\<lambda> n. (n = NID_i0_stm0) \<^bold>& (internal__stm0\<^bold>.NID_i0_stm0 \<rightarrow> Skip \<^bold>; enter_s0_stm0 \<rightarrow> Trans_ex1''\<cdot>NID_s0_stm0) \<box>
        (n = NID_s0_stm0) \<^bold>&
        (a__in\<^bold>.NID_s0_stm0 \<rightarrow> Skip \<^bold>; SSTOP \<triangle> (exit_stm0 \<rightarrow> Skip) \<^bold>;
@@ -492,8 +491,7 @@ lemma Trans_ex1''_restriction_fix :
 
 
 
-
-lemma Trans_ex1''_ddlf:
+lemma Trans_ex1''_ddlf':
  \<open>deadlock_free( \<sqinter> n \<in> UNIV. (Trans_ex1''\<cdot>n \<^bold>; Terminate ) )\<close>
 proof (subst deadlock_free_GlobalNdet_iff, intro conjI ballI)
   show \<open>UNIV \<noteq> {}\<close> by simp
