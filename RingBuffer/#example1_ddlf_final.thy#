@@ -75,7 +75,7 @@ fixrec
 SSTOP       :: "chan_event process"              and
 Terminate   :: "chan_event process"             
 where
-[simp del] :\<open>SSTOP = share \<rightarrow> SSTOP\<close>|
+[simp del] :"SSTOP = share \<rightarrow> SSTOP"|
 [simp del] :\<open>Terminate = terminate \<rightarrow> Terminate\<close>
 
 

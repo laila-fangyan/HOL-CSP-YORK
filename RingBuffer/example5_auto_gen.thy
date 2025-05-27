@@ -197,7 +197,7 @@ lemma Trans_ex4_ddlf:
 
 (*TO DO: the last unsolved goal involves ifstmt, new lemma needed?*)
   apply (simp add: SSTOP_refine write0_Seq write_is_write0 GlobalNdet_refine_no_step eat_lemma)
-  done
+  oops
 
 
 end

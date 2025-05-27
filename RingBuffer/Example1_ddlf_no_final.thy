@@ -196,6 +196,7 @@ lemma SSTOP_refine:
 
   
 (*this is a valid proof*)
+(*
 lemma Trans_ex1_ddlf:
   \<open>deadlock_free (\<sqinter> n \<in> UNIV. Trans_ex1\<cdot>n)  \<close>
   (* Apply induction *)
@@ -226,7 +227,7 @@ lemma Trans_ex1_ddlf:
   apply (simp add: SSTOP_nonTerm  prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq GlobalNdet_refine_no_step SSTOP_refine eat_lemma iso_tuple_UNIV_I)
   done
 
-
+*)
 
 lemma Trans_ex1''_restriction_fix :
   \<open>Rep_cfun Trans_ex1 =
