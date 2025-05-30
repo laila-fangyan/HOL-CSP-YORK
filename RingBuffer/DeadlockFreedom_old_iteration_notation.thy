@@ -2,12 +2,9 @@
  * This file contains theories for automating the verification of deadlock freedom.
  * This version combines the lemmas in Deadlock_Freeness_Stuff by Benoit and new lemmas developed for ddlf proof.
  * 06 May 2025
-
- * iteration notation replaced with a more intuitive one (\<sqinter> \<alpha>+ \<rightarrow> _)
- * 28 May 2025
 ************************************************************************************\<close>
 
-theory DeadlockFreedom
+theory DeadlockFreedom_old_iteration_notation
   imports "HOL-CSP_OpSem.OpSem_Deadlock_Results" "Guard"
 begin
 
@@ -234,14 +231,11 @@ definition GlobalNdet_iterations' :: \<open>('a, 'r) process\<^sub>p\<^sub>t\<^s
   where \<open>GlobalNdet_iterations' P \<equiv> \<sqinter>i \<in> UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P\<close>
   (* UNIV = {0..} *)
 
-notation GlobalNdet_iterations ("(\<sqinter> \<alpha>\<^sup>+ \<rightarrow> _)" [1000] 999)
-notation GlobalNdet_iterations' ("(\<sqinter> \<alpha>\<^sup>* \<rightarrow> _)" [1000] 999)
 
-lemma GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations : \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P = P \<sqinter>( \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P)\<close>
+lemma GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations : \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P \<sqinter> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
 proof -
-  
   have \<open>UNIV = insert (0 :: nat) {0<..}\<close> by fast
-  have \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P = \<sqinter> i\<in>UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
+  have \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = \<sqinter> i\<in>UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
     by (simp add: GlobalNdet_iterations'_def)
   also have \<open>\<dots> = iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P \<sqinter>
                   (\<sqinter> i\<in>{0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P)\<close>
@@ -249,13 +243,13 @@ proof -
     apply (subst GlobalNdet_distrib_unit)
     by simp_all
   also have \<open>iterate 0\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P = P\<close> by simp
-  also have \<open>(\<sqinter> i\<in>{0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P) = \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close>
+  also have \<open>(\<sqinter> i\<in>{0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P) = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
     by (simp add: GlobalNdet_iterations_def)
-  finally show \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P = P \<sqinter> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P)\<close> .
+  finally show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P \<sqinter> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> .
 qed
 
 
-lemma GlobalNdet_iterations'_Mndetprefix : \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close>
+lemma GlobalNdet_iterations'_Mndetprefix : \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
 proof -
   have \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = (\<sqinter> i\<in>UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>(\<sqinter>a\<in>UNIV \<rightarrow>  P))\<close>
     by (simp add: GlobalNdet_iterations'_def)
@@ -264,28 +258,28 @@ proof -
   also have \<open>\<dots> = \<sqinter> i\<in>{0<..}. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
     by (auto simp add: inj_on_mapping_over_GlobalNdet[of Suc UNIV, simplified]
         greaterThan_0 intro: mono_GlobalNdet_eq)
-  also have \<open>\<dots> = \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close> by (simp add: GlobalNdet_iterations_def)
-  finally show \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close> .
+  also have \<open>\<dots> = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> by (simp add: GlobalNdet_iterations_def)
+  finally show \<open>(\<sqinter>a\<in>UNIV \<rightarrow>  P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close> .
 qed
 
 
 
-lemma GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' :\<open>\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P = \<sqinter>a\<in>UNIV \<rightarrow> (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P)\<close>
+lemma GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' :\<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<close>
 proof (subst Process_eq_spec, safe)
-  show \<open>t \<in> \<D> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P) \<Longrightarrow> t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P))\<close> for t
+  show \<open>t \<in> \<D> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+) \<Longrightarrow> t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t
     apply (simp add: D_Mndetprefix write0_def D_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (cases t, simp_all add:  D_GlobalNdet D_iterate_Mndetprefix_UNIV greaterThan_0)
     by (metis (no_types, lifting) append_eq_Cons_conv is_ev_def length_greater_0_conv
               tickFree_Cons_iff zero_less_Suc)
 next
-  show \<open>t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P)) \<Longrightarrow> t \<in> \<D> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P)\<close> for t
+  show \<open>t \<in> \<D> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<Longrightarrow> t \<in> \<D> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> for t
     apply (simp add: D_Mndetprefix write0_def D_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (cases t, simp_all add: D_GlobalNdet D_iterate_Mndetprefix_UNIV greaterThan_0)
     by (metis append_Cons event\<^sub>p\<^sub>t\<^sub>i\<^sub>c\<^sub>k.disc(1) length_Cons tickFree_Cons_iff)
 next
-  show \<open>(t, X) \<in> \<F> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P) \<Longrightarrow> (t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P))\<close> for t X
+  show \<open>(t, X) \<in> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+) \<Longrightarrow> (t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<close> for t X
     apply (simp add: F_Mndetprefix write0_def F_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (simp add: F_GlobalNdet F_iterate_Mndetprefix_UNIV)
@@ -293,7 +287,7 @@ next
     by (smt (verit, best) append_eq_Cons_conv is_ev_def length_greater_0_conv
             tickFree_Cons_iff zero_less_Suc)
 next
-  show \<open>(t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P)) \<Longrightarrow> (t, X) \<in> \<F> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P)\<close> for t X
+  show \<open>(t, X) \<in> \<F> (\<sqinter>a\<in>UNIV \<rightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<Longrightarrow> (t, X) \<in> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> for t X
     apply (simp add: F_Mndetprefix write0_def F_Mprefix)
     apply (simp add: GlobalNdet_iterations_def GlobalNdet_iterations'_def)
     apply (simp add: F_GlobalNdet F_iterate_Mndetprefix_UNIV)
@@ -305,21 +299,19 @@ qed
 text\<open>Benoit 30Jan, changed from \<open>\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c*  \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close> to  \<longleftrightarrow>\<close>
 
 lemma one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD :
-  \<open>\<sqinter>a\<in>UNIV \<rightarrow> (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P)  \<sqsubseteq>\<^sub>F\<^sub>D Q \<longleftrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
+  \<open>\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*  \<sqsubseteq>\<^sub>F\<^sub>D Q \<longleftrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
   by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations')
 
 
 text \<open>This law would allow us to break down the proof into an initial event step, followed by an arbitrary number  of steps. Then we could try and prove laws like the one below.
 This means that if Q can do some number of events and then behave as P, then Q prefixed by a   can also do some number of steps and then behave as P. It seems to be intuitively true, but we  can't prove it. It would however avoid needing to pick the number of steps to make before recursing, which would facilitate fully automated proof.\<close>
-lemma eat_lemma: \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close> if \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
-  thm that
+lemma eat_lemma: \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
 proof (rule trans_FD)
-  show \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> Q\<close>
-    
+  show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> Q\<close>
     apply (subst GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations)
     by (metis FD_iff_eq_Ndet GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' Ndet_assoc mono_Mndetprefix_FD that)
   next
-    show \<open>(\<sqinter>a\<in>UNIV \<rightarrow> Q) \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close>
+  show \<open>(\<sqinter>a\<in>UNIV \<rightarrow> Q) \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close>
     by (simp add: prefix_proving_Mndetprefix_UNIV_ref(3))
 qed
 
@@ -327,38 +319,37 @@ qed
 
 
 lemma iterate_F_imp_GlobalNdet_iterations_F :
-  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>F Q \<Longrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F Q\<close>
+  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>F Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F Q\<close>
   by (unfold GlobalNdet_iterations_def)
      (meson GlobalNdet_refine_F greaterThan_iff trans_F)
 
 lemma iterate_T_imp_GlobalNdet_iterations_T :
-  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>T Q \<Longrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>T Q\<close>
+  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>T Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>T Q\<close>
   by (unfold GlobalNdet_iterations_def)
      (meson GlobalNdet_refine_F greaterThan_iff leF_imp_leT trans_T)
 
 lemma iterate_D_imp_GlobalNdet_iterations_D :
-  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>D Q \<Longrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>D Q\<close>
+  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>D Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>D Q\<close>
   by (unfold GlobalNdet_iterations_def)
      (meson GlobalNdet_refine_FD greaterThan_iff leFD_imp_leD trans_D)
 
 lemma iterate_FD_imp_GlobalNdet_iterations_FD :
-  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
+  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>F\<^sub>D Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
   by (metis iterate_D_imp_GlobalNdet_iterations_D
             iterate_F_imp_GlobalNdet_iterations_F
               leFD_imp_leD leFD_imp_leF leF_leD_imp_leFD)
 
 lemma iterate_DT_imp_GlobalNdet_iterations_DT :
-  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>D\<^sub>T Q \<Longrightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>D\<^sub>T Q\<close>
+  \<open>0 < i \<Longrightarrow> iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P \<sqsubseteq>\<^sub>D\<^sub>T Q \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>D\<^sub>T Q\<close>
   by (metis iterate_D_imp_GlobalNdet_iterations_D
             iterate_T_imp_GlobalNdet_iterations_T
             leDT_imp_leD leDT_imp_leT leD_leT_imp_leDT)
 
 
 
-lemma GlobalNdet_iterations_F_imp_deadlock_free : \<open>deadlock_free P\<close> if \<open>\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F P\<close>
-  thm that
+lemma GlobalNdet_iterations_F_imp_deadlock_free : \<open>deadlock_free P\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>
 proof -
-  have \<open>\<F> P \<subseteq> \<F> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P)\<close> by (meson failure_refine_def \<open>\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F P\<close>)
+  have \<open>\<F> P \<subseteq> \<F> (P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<close> by (meson failure_refine_def \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F P\<close>)
   also have \<open>\<dots> = (\<Union>i\<in>{0<..}. {(s, X). tickFree s \<and> length s < i \<and> (\<exists>a. ev a \<notin> X)} \<union>
                                {(s @ t, X)| s t X. tickFree s \<and> length s = i \<and> (t, X) \<in> \<F> P})\<close>
     by (simp add: GlobalNdet_iterations_def F_GlobalNdet F_iterate_Mndetprefix_UNIV)
@@ -393,7 +384,7 @@ qed
 
 
 lemma GlobalNdet_iterations_FD_imp_deadlock_free :
-  \<open>\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P  \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
   by (simp add: GlobalNdet_iterations_F_imp_deadlock_free leFD_imp_leF)
 
 lemma GlobalNdet_iterations_F_imp_deadlock_free_skip : 
@@ -403,7 +394,7 @@ sorry
 
 
 lemma GlobalNdet_iterations_FD_imp_deadlock_free_skip :
-  \<open>\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqinter> SKIP() \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close>
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqinter> SKIP() \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close>
   sorry
 
 text \<open>This would be a useful lemma to have, because it would allow us to have an operator that simply does n event steps.  SKIP updated to Skip 25Feb\<close>
@@ -422,7 +413,7 @@ qed
 
 
 text\<open>Benoit 30Jan\<close>
-lemma GlobalNdet_iterations'_GlobalNdet_iterations' : \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P) = \<sqinter> \<alpha>\<^sup>* \<rightarrow> P\<close>
+lemma GlobalNdet_iterations'_GlobalNdet_iterations' : \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<close>
   apply (simp add: Process_eq_spec GlobalNdet_iterations'_def
                    F_GlobalNdet D_GlobalNdet
                    F_iterate_Mndetprefix_UNIV D_iterate_Mndetprefix_UNIV)
@@ -438,7 +429,7 @@ lemma GlobalNdet_iterations'_GlobalNdet_iterations' : \<open>\<sqinter> \<alpha>
 
 
 
-lemma GlobalNdet_iterations_GlobalNdet_iterations : \<open> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> (\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P) = \<sqinter>a\<in>UNIV \<rightarrow> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close>
+lemma GlobalNdet_iterations_GlobalNdet_iterations : \<open>(P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ = \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
   by (simp add: GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations'
                 GlobalNdet_iterations'_Mndetprefix
                 GlobalNdet_iterations'_GlobalNdet_iterations')
@@ -448,44 +439,43 @@ lemma GlobalNdet_iterations_GlobalNdet_iterations : \<open> \<sqinter> \<alpha>\
 section\<open>NEW lemmas to be added into HOL-CSP library\<close>
 subsection\<open>natural deduction\<close>
 lemma eat_read_lemma: 
-  assumes "inj c" "\<And> v. \<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q v"
-  shows \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
+  assumes "inj c" "\<And> v. P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q v"
+  shows \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
 proof (rule trans_FD)
-  thm assms
-  show \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P)\<close>
+  show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<close>
     by (simp add: Mndetprefix_GlobalNdet eat_lemma mono_GlobalNdet_FD_const)
 next
-  show "\<sqinter>a\<in>UNIV \<rightarrow> (\<sqinter> \<alpha>\<^sup>* \<rightarrow> P) \<sqsubseteq>\<^sub>F\<^sub>D (c\<^bold>?v \<rightarrow> Q v)"
+  show "\<sqinter>a\<in>UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D (c\<^bold>?v \<rightarrow> Q v)"
     apply (rule read_proving_Mndetprefix_UNIV_ref)
       apply (simp_all add: assms)
     done
 qed
 
 lemma read_prefix_proving_Mndetprefix_ref :
-  assumes "inj c"  "\<And> v. a \<in> UNIV \<Longrightarrow> \<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q v "
-  shows  \<open> (\<sqinter>a \<in> UNIV \<rightarrow> \<sqinter> \<alpha>\<^sup>* \<rightarrow> P) \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
+  assumes "inj c"  "\<And> v. a \<in> UNIV \<Longrightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q v "
+  shows  \<open> (\<sqinter>a \<in> UNIV \<rightarrow> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*) \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
   by (simp add: assms(1,2) read_proving_Mndetprefix_UNIV_ref)
 
-lemma proc_plus_prefix_ref: \<open> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow>  \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> P\<close>
+lemma proc_plus_prefix_ref: \<open> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> P\<close>
   apply (unfold write0_def)
   apply (rule trans_FD[OF _ iterate_FD_imp_GlobalNdet_iterations_FD[of \<open>Suc 0\<close> \<open>P\<close>]])
   by (simp_all add: prefix_proving_Mndetprefix_UNIV_ref(2))
 
 lemma proc_plus_read_prefix_ref: 
-  assumes "inj c"  "\<And> v. \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q v "
-  shows  \<open>  \<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
+  assumes "inj c"  "\<And> v. P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q v "
+  shows  \<open>  P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D c\<^bold>?v \<rightarrow> Q v\<close>
   by (metis (mono_tags, lifting) GlobalNdet_iterations_is_one_step_ahead_GlobalNdet_iterations' Mndetprefix_GlobalNdet assms(1,2)
       dual_order.refl eat_lemma eat_read_lemma empty_not_UNIV mono_GlobalNdet_FD_const trans_FD)
 
 
-lemma no_step_refine: "\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D P"
+lemma no_step_refine: "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D P"
   by (simp add: GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations Ndet_FD_self_left)
 
 
 
 text\<open>df_step_intro is not applicable to index/parametrized process\<close>
 lemma df_step_intro:
-  assumes P_def: "P = Q" "\<sqinter> \<alpha>\<^sup>+ \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q"
+  assumes P_def: "P = Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q"
   shows "deadlock_free P"
   apply (rule GlobalNdet_iterations_FD_imp_deadlock_free)
   apply (subst P_def)  back (* also works: apply (subst (2) P_def) *)
@@ -527,8 +517,8 @@ lemma GlobalDet_is_STOP_iff : \<open>\<box>a \<in> A. P a = STOP \<longleftright
 subsection\<open>extchoice\<close>
 text\<open>this is added for P = d\<rightarrow>( (a \<rightarrow> b \<rightarrow> P) \<box> (b \<rightarrow> c \<rightarrow> P)) pattern: prefix of external choice\<close>
 lemma ndet_prefix_ext_choice:
-  assumes "\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q" "\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D R"
-  shows "\<sqinter> \<alpha>\<^sup>* \<rightarrow> P \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
+  assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q" "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D R"
+  shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D Q \<box> R"
   by (metis mono_Det_FD Det_id assms(1) assms(2))
 
 

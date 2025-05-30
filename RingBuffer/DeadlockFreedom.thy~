@@ -231,8 +231,10 @@ definition GlobalNdet_iterations' :: \<open>('a, 'r) process\<^sub>p\<^sub>t\<^s
   where \<open>GlobalNdet_iterations' P \<equiv> \<sqinter>i \<in> UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P\<close>
   (* UNIV = {0..} *)
 
+notation GlobalNdet_iterations ("(\<sqinter> \<alpha>\<^sup>+ \<rightarrow> _)" [1000] 999)
+notation GlobalNdet_iterations' ("(\<sqinter> \<alpha>\<^sup>* \<rightarrow> _)" [1000] 999)
 
-lemma GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations : \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = P \<sqinter> P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<close>
+lemma GlobalNdet_iterations'_is_Ndet_GlobalNdet_iterations : \<open>\<sqinter> \<alpha>\<^sup>* \<rightarrow> P = P \<sqinter> \<sqinter> \<alpha>\<^sup>+ \<rightarrow> P\<close>
 proof -
   have \<open>UNIV = insert (0 :: nat) {0<..}\<close> by fast
   have \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* = \<sqinter> i\<in>UNIV. iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow>  X)\<cdot>P\<close>
@@ -382,9 +384,20 @@ proof -
         is_processT5_S7 length_0_conv length_Suc_conv less_irrefl subset_iff)
 qed
 
+
 lemma GlobalNdet_iterations_FD_imp_deadlock_free :
-  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free P\<close>
   by (simp add: GlobalNdet_iterations_F_imp_deadlock_free leFD_imp_leF)
+
+lemma GlobalNdet_iterations_F_imp_deadlock_free_skip : 
+  \<open>(P\<sqinter> SKIP() )\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+  \<sqsubseteq>\<^sub>F P \<Longrightarrow> deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close>
+sorry
+
+
+
+lemma GlobalNdet_iterations_FD_imp_deadlock_free_skip :
+  \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqinter> SKIP() \<sqsubseteq>\<^sub>F\<^sub>D P \<Longrightarrow> deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S P\<close>
+  sorry
 
 text \<open>This would be a useful lemma to have, because it would allow us to have an operator that simply does n event steps.  SKIP updated to Skip 25Feb\<close>
 lemma iterate_is_iterate_SKIP_Seq :  \<open>iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>P = iterate i\<cdot>(\<Lambda> X. \<sqinter>a\<in>UNIV \<rightarrow> X)\<cdot>Skip \<^bold>; P\<close>
@@ -482,6 +495,15 @@ lemma df_step_param_intro:
   done
 
 
+lemma df_step_param_intro_skip:
+  assumes P_def: "\<And> x. P x = Q x" "\<And> x. (GlobalNdet UNIV P)\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D Q x"
+  shows "deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S (\<sqinter> n \<in> UNIV. P n)"
+  sorry
+(*  apply (rule GlobalNdet_iterations_FD_imp_deadlock_free_skip)
+  apply (subst P_def)  back
+  apply (simp add: assms(2) mono_GlobalNdet_FD_const)
+  done
+*)
 lemma prefix_recursive_ddlf(*was named ex1_m'*):
   assumes P_def: \<open>P = (a \<rightarrow> P)\<close>
   shows \<open>deadlock_free P\<close> 
