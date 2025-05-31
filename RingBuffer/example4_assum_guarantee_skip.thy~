@@ -1,5 +1,6 @@
-theory example4_assum_guarantee 
-	imports   DeadlockFreedom
+(*this theory proves deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S *)
+theory example4_assum_guarantee_skip
+	imports   DeadlockSKIPSFreedom
 begin
 
 
@@ -156,13 +157,15 @@ where
 
 
 lemma SSTOP_remove_seq: "SSTOP \<^bold>; P = SSTOP"
-  by (meson AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S SSTOP.simps non_terminating_Seq non_terminating_is_empty_ticks_of prefix_recursive_ddlf)
+  by (meson AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S DeadlockFreedom.prefix_recursive_ddlf SSTOP.simps non_terminating_Seq
+      non_terminating_is_empty_ticks_of)
 
 
 
 (*2 lemmas below used as assumptions in non_terminating_Interrupt_Seq*)
 lemma SSTOP_nonTerm: \<open>non_terminating SSTOP\<close>
-  by (meson Trans.SSTOP.unfold deadlock_free_implies_lifelock_free lifelock_free_is_non_terminating prefix_recursive_ddlf)
+  by (meson AfterExt.deadlock_free_iff_empty_ticks_of_and_deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S DeadlockFreedom.prefix_recursive_ddlf Trans.SSTOP.unfold
+      non_terminating_is_empty_ticks_of)
 
 lemma prefix_Skip_no_initial_tick : \<open> (a\<rightarrow> Skip)\<^sup>0 \<inter> range tick = {}\<close>
   by (simp add: image_iff initials_write0)
@@ -185,39 +188,72 @@ lemma \<open>SSTOP \<triangle> ((a \<rightarrow> Skip) \<^bold>; STOP)\<^bold>; 
 
 lemma SSTOP_ddlf: 
   assumes P_def: \<open>SSTOP = share \<rightarrow> SSTOP\<close>
-  shows \<open>deadlock_free SSTOP\<close>
+  shows \<open>deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S SSTOP\<close>
   apply (rule df_step_intro[OF P_def])
-  apply ( simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym]
-  prefix_proving_Mndetprefix_UNIV_ref(3) eat_lemma no_step_refine 
-             binops_proving_Mndetprefix_ref ndet_prefix_ext_choice Guard_def)
-  done
+  by (metis GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_Mndetprefix GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_is_Ndet_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations Ndet_FD_self_left
+      dual_order.refl dual_order.trans prefix_proving_Mndetprefix_UNIV_ref(3))
+
 
 lemma SSTOP_refine:
-  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  P" 
-  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>* \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
-  by (meson interrupt_ref Trans.SSTOP.unfold assms)
+  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark>  \<sqsubseteq>\<^sub>F\<^sub>D  P" 
+  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark>  \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
+  by (meson DeadlockSKIPSFreedom.interrupt_ref Trans.SSTOP.unfold assms)
 
 lemma SSTOP_refine_plus:
-  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D  P" 
-  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+ \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
-  by (metis GlobalNdet_iterations'_Mndetprefix SSTOP.unfold assms interrupt_ref)
+  assumes "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<^sup>\<checkmark>  \<sqsubseteq>\<^sub>F\<^sub>D  P" 
+  shows "X\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D  ( SSTOP \<triangle> P)"
+  by (metis GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_Mndetprefix SSTOP_refine assms)
 
 
-(*this is a valid proof, but normalization and step-law proof are mixed together*)
-(*
-lemma Trans_ex4_ddlf:
+find_theorems SKIPS UNIV
+lemma Trans_ex4'_ddlf:
 
-  "deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm4_core\<cdot>n)  "
+  "deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S (\<sqinter> n \<in> UNIV. Trans_stm4'\<cdot>n)  "
   (* Apply induction *)
-  apply (rule df_step_param_intro[OF Trans_stm4_core.simps])
+  apply (rule df_step_param_intro[OF Trans_stm4'.simps])
   (* Normalisation *)
 
   apply (rule SSTOP_refine_plus)
-  apply (simp add: one_step_ahead_GlobalNdet_iterations'_FD_iff_GlobalNdet_iterations_FD[THEN sym] )
-  apply (rule read_proving_Mndetprefix_ref)
-  apply (simp add: inj_def)
-  apply simp+
-  apply (simp add:  bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
+  apply (simp add:  read_Seq write_Seq write0_Seq)
+
+  apply (simp add:  bi_extchoice_norm  biextchoic_normalization biextchoic_normalization_nguard_prefix )
+  
+  apply (rule GlobalNdet_reduce_read)
+  apply (simp add: inj_on_def)
+  
+  thm ndet_prefix_ext_choice
+  apply (rule ndet_prefix_ext_choice)
+  defer
+  apply (rule ndet_prefix_ext_choice)
+    defer
+  apply (rule GlobalNdet_reduce_prefix')
+    apply (rule GlobalNdet_Skip)
+  defer
+  apply (rule GlobalNdet_reduce_prefix')
+
+ apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick  non_terminating_Interrupt_Seq      )
+   apply (rule SSTOP_refine  )
+   apply (simp add: write0_Seq write_is_write0)
+
+  apply (rule GlobalNdet_reduce_prefix')
+   apply (rule SSTOP_refine  )
+
+   apply (rule GlobalNdet_reduce_prefix')+
+
+   apply (rule GlobalNdet_Skip)
+
+  apply (auto intro!:bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq prefix_proving_Mndetprefix_UNIV_ref(3)
+ generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
+
+      defer
+
+
+
+ apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq    )
+  apply (rule SSTOP_refine)
+  apply (simp add: write0_Seq write_is_write0)
+  apply (simp add: GlobalNdet_refine_no_step eat_lemma)
+  
 
   apply (auto intro!:bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq prefix_proving_Mndetprefix_UNIV_ref(3)
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )

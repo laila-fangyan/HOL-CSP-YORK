@@ -1,3 +1,4 @@
+(*this theory proves deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S *)
 theory example4_assum_guarantee_skip
 	imports   DeadlockSKIPSFreedom
 begin
@@ -109,8 +110,8 @@ where
 	  (terminate \<rightarrow> Skip))))) \<close>
  |
 [simp del] :\<open>Trans_stm4'\<cdot>n = 
-	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> (((((( 
-    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> (set_v1\<^bold>!1 \<rightarrow> Skip)))  \<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s0_stm4) )
+	(SSTOP \<triangle> (get_v1\<^bold>?v1 \<rightarrow> assume (v1 \<ge> 1) (Trans_stm4'\<cdot>n) ( ((((( 
+    (n = NID_i0_stm4) \<^bold>& ((internal__stm4\<^bold>.NID_i0_stm4 \<rightarrow> (SSTOP \<triangle> guar ((2::int) \<ge> 1) (set_v1\<^bold>!1 \<rightarrow> Skip)))  \<^bold>;  (enter_s0_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s0_stm4) )
 	  \<box>
 	   (n = NID_s0_stm4) \<^bold>& ((v1 \<ge> 1) \<^bold>& (((internal__stm4\<^bold>.NID_s0_stm4 \<rightarrow> Skip)\<^bold>;  ((SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip))\<^bold>;  (SSTOP \<triangle> ((exited_stm4 \<rightarrow> Skip)\<^bold>;  (enter_s1_stm4 \<rightarrow>  Trans_stm4'\<cdot>NID_s1_stm4))))))))
 	  \<box>
@@ -121,7 +122,7 @@ where
 	  \<box>
 	  (((interrupt_stm4 \<rightarrow> (SSTOP \<triangle> (exit_stm4 \<rightarrow> Skip)))\<^bold>;  (SSTOP \<triangle> (exited_stm4 \<rightarrow> (terminate \<rightarrow> Skip))))
 	  \<box>
-	  (terminate \<rightarrow> Skip))))) \<close>
+	  (terminate \<rightarrow> Skip)))  )) \<close>
 
 
 
@@ -206,55 +207,63 @@ lemma SSTOP_refine_plus:
 
 find_theorems SKIPS UNIV
 lemma Trans_ex4'_ddlf:
-
   "deadlock_free\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S (\<sqinter> n \<in> UNIV. Trans_stm4'\<cdot>n)  "
-  (* Apply induction *)
+  
+  (* Step 1: to apply induction *)
   apply (rule df_step_param_intro[OF Trans_stm4'.simps])
-  (* Normalisation *)
-
-  apply (rule SSTOP_refine_plus)
-  apply (simp add:  read_Seq write_Seq write0_Seq)
-  apply (simp add:  bi_extchoice_norm  biextchoic_normalization biextchoic_normalization_nguard_prefix[THEN sym] )
+  
+  (* Step 2: Normalisation *)
+  (*to remove SSTOP interrupt and the var input*)
+  apply (rule SSTOP_refine_plus) (*can this be grouped as norm? ? ? ?*)
   apply (rule GlobalNdet_reduce_read)
    apply (simp add: inj_on_def)
-  thm ndet_prefix_ext_choice
+
+  (*to simplify away seq Skip*)
+  apply (simp add:  read_Seq write_Seq write0_Seq)
+
+  (*to normalize extchoice but not the unguarded ones which are the termination, so biextchoic_normalization_nguard and biextchoic_normalization_nguard_prefix are no longer needed *)
+  apply (simp add:  bi_extchoice_norm  biextchoic_normalization )
+  
+  (*to split goal into aviol and not aviol*)
+  apply (auto intro!:bi_extchoice_norm )
+
+  (*to split the not aviol goal into transitions and terminations*)
   apply (rule ndet_prefix_ext_choice)
-  defer
+
+  defer (*to move the transitions' goal to the end*)
+  (*to split the two terminations*)
   apply (rule ndet_prefix_ext_choice)
-    defer
-  apply (rule GlobalNdet_reduce_prefix')
+
+  (*to prove the 1st termination*)
+  apply (rule eat_lemma)
+  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick  non_terminating_Interrupt_Seq      )
+  apply (rule SSTOP_refine  )
+  apply (simp add: write0_Seq write_is_write0)
+  apply (rule eat_lemma)
+  apply (rule SSTOP_refine  )
+  apply (rule eat_lemma)+
   apply (rule GlobalNdet_Skip)
 
-  thm biextchoic_normalization_nguard_prefix
-    apply (simp add: one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_FD_iff_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_FD[THEN sym] )
-  
-  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick       )
+  (*to prove the 2nd termination*)
+  apply (rule eat_lemma)+
+  apply (rule GlobalNdet_Skip)
 
- apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq  SSTOP_refine  write_is_write0 GlobalNdet_refine_no_step eat_lemma)+
+  (*to prove aviol*)
+  apply (auto intro!: eat_lemma GlobalNdet_refine_no_step)
+
+  (*to prove transitions*)
   apply (auto intro!:bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq prefix_proving_Mndetprefix_UNIV_ref(3)
  generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-  apply (simp add: one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_FD_iff_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_FD[THEN sym] )
-  apply (rule read_proving_Mndetprefix_ref)
-  apply (simp add: inj_def)
-  apply simp+
-  apply (simp add:  bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq)
 
-  apply (auto intro!:bi_extchoice_norm  biextchoic_normalization  biextchoic_normalization_nguard_prefix read_Seq write_Seq write0_Seq prefix_proving_Mndetprefix_UNIV_ref(3)
- generalized_refine_guarded_extchoice_star eat_lemma no_step_refine generalized_refine_guarded_extchoice write_proving_Mndetprefix_UNIV_ref GlobalNdet_refine_no_step )
-  (*discharge the guard*)
-  
-  using NIDS_stm4.exhaust atLeast0AtMost lessThan_Suc lessThan_Suc_atMost apply auto[1]
-  
+  defer (*to move the goal of guards to the end and to be discharged by sledgehammer*)
+
+  (*to discharge goal for each transition*)
   apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq  SSTOP_refine  write_is_write0 GlobalNdet_refine_no_step eat_lemma)+
+   
+  (*to discharge the last goal for guards using sledgehammer*)
+  using NIDS_stm4.exhaust atLeast0AtMost lessThan_Suc lessThan_Suc_atMost by auto
+  
 
-  (*the 4 lines below are replaced by the 1 line above
-  apply (simp add: SSTOP_nonTerm  write_prefix_Skip_no_initial_tick non_terminating_Interrupt_Seq write0_Seq    )
-  apply (rule SSTOP_refine)
-  apply (simp add: write0_Seq write_is_write0)
-  apply (simp add: GlobalNdet_refine_no_step eat_lemma)
-  *)
-  done
-*)
 
 
 (*this version tries to do normalization first, then step-wise proof*)

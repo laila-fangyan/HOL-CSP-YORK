@@ -438,6 +438,22 @@ lemma one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iteratio
   by (simp add: GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_is_one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations')
 
 
+
+text \<open>This law would allow us to break down the proof into an initial event step, followed by an arbitrary number  of steps. Then we could try and prove laws like the one below.
+This means that if Q can do some number of events and then behave as P, then Q prefixed by a   can also do some number of steps and then behave as P. It seems to be intuitively true, but we  can't prove it. It would however avoid needing to pick the number of steps to make before recursing, which would facilitate fully automated proof.\<close>
+lemma eat_lemma: \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
+proof (rule trans_FD)
+  show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> Q\<close>
+    apply (subst GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_is_Ndet_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations)
+    by (metis (no_types, lifting) GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_is_one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'
+        Ndet_FD_self_right Ndet_commute dual_order.trans mono_Mndetprefix_FD that)
+  next
+  show \<open>(\<sqinter>a\<in>UNIV \<rightarrow> Q) \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close>
+    by (simp add: prefix_proving_Mndetprefix_UNIV_ref(3))
+qed
+
+
+
 lemma GlobalNdet_reduce_prefix:
   assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D Q"
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q"
@@ -454,30 +470,10 @@ lemma GlobalNdet_reduce_write:
   shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>+\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D a\<^bold>!v \<rightarrow> Q"
   by (simp add: GlobalNdet_reduce_prefix assms write_is_write0)
 
-lemma GlobalNdet_reduce_prefix':
-  assumes "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D Q"
-  shows "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q"
-  by (metis GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_is_Ndet_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations GlobalNdet_reduce_prefix Ndet_FD_self_right assms dual_order.trans)
 
 lemma GlobalNdet_Skip: "P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D Skip"
   by (metis GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_is_Ndet_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_is_one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'
       Ndet_FD_self_right SKIPS_singl_is_SKIP UNIV_unit trans_FD)
-
-
-
-text \<open>This law would allow us to break down the proof into an initial event step, followed by an arbitrary number  of steps. Then we could try and prove laws like the one below.
-This means that if Q can do some number of events and then behave as P, then Q prefixed by a   can also do some number of steps and then behave as P. It seems to be intuitively true, but we  can't prove it. It would however avoid needing to pick the number of steps to make before recursing, which would facilitate fully automated proof.\<close>
-lemma eat_lemma: \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close> if \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D Q\<close>
-proof (rule trans_FD)
-  show \<open>P\<^sup>p\<^sup>r\<^sup>o\<^sup>c\<^sup>*\<^sup>\<checkmark> \<sqsubseteq>\<^sub>F\<^sub>D \<sqinter>a\<in>UNIV \<rightarrow> Q\<close>
-    apply (subst GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'_is_Ndet_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations)
-    by (metis (no_types, lifting) GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations_is_one_step_ahead_GlobalNdet\<^sub>S\<^sub>K\<^sub>I\<^sub>P\<^sub>S_iterations'
-        Ndet_FD_self_right Ndet_commute dual_order.trans mono_Mndetprefix_FD that)
-  next
-  show \<open>(\<sqinter>a\<in>UNIV \<rightarrow> Q) \<sqsubseteq>\<^sub>F\<^sub>D a \<rightarrow> Q\<close>
-    by (simp add: prefix_proving_Mndetprefix_UNIV_ref(3))
-qed
-
 
 
 

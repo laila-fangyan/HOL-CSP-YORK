@@ -204,7 +204,7 @@ lemma SSTOP_refine_plus:
 
 
 (*this is a valid proof, but normalization and step-law proof are mixed together*)
-(*
+
 lemma Trans_ex4_ddlf:
 
   "deadlock_free (\<sqinter> n \<in> UNIV. Trans_stm4_core\<cdot>n)  "
@@ -232,7 +232,7 @@ lemma Trans_ex4_ddlf:
   apply (rule SSTOP_refine)
   apply (simp add: write0_Seq write_is_write0)
   apply (simp add: GlobalNdet_refine_no_step eat_lemma)
-  *)
+  
   done
 *)
 
